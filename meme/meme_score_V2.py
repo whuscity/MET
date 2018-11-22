@@ -131,5 +131,5 @@ if __name__ == '__main__':
 
     cal_meme_score(con, candidates)
 
-    # cal_meme_score(con, [('4663262','disilicide films')])
+    # cal_meme_score(con, [('4663262','disilicide films')]) 
     con.close()
