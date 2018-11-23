@@ -63,9 +63,9 @@ def get_cooccurrance_network(classes, data, label_name):
 
     for row in data:
         if graph.has_edge(reverse_classes_dict[row[0]], reverse_classes_dict[row[1]]):
-            graph.edges[reverse_classes_dict[row[0]], reverse_classes_dict[row[1]]]['Weight'] += 1
+            graph.edges[reverse_classes_dict[row[0]], reverse_classes_dict[row[1]]]['weight'] += 1
         else:
-            graph.add_edge(reverse_classes_dict[row[0]], reverse_classes_dict[row[1]], Weight=1)
+            graph.add_edge(reverse_classes_dict[row[0]], reverse_classes_dict[row[1]], weight=1)
 
     # dc = nx.degree_centrality(graph)
     # bc = nx.betweenness_centrality(graph)
