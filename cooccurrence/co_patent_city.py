@@ -1,9 +1,23 @@
 import networkx as nx
 from netUtil.cooccurrence_network import *
 import sqlite3
+from geoUtil.forward_geocoding import get_geocode
+from math import isclose
 
 
 def get_each_range_network(con, start, end, span, city, gen_all=False):
+    """
+    生成给定时间范围，以指定城市为中心的合作网络
+    也可以生成该时间范围的全局合作网络
+
+    :param con: 数据库连接
+    :param start: 开始年份
+    :param end: 结束年份
+    :param span: 时间跨度
+    :param city: 城市
+    :param gen_all: 是否生成全局网络
+    :return:
+    """
     city_networks = []
     all_networks = []
     cursor = con.cursor()
@@ -22,7 +36,7 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
         cities = generate_matrix_index(results)
         cur_city_network = get_cooccurrance_network(cities, results, 'CITY')
         city_networks.append((str(year) + '-' + str(year + span - 1), cur_city_network))
-        nx.write_gexf(cur_city_network, '../results/' + str(year) + '-' + str(year + span - 1) + '-' + city + '.gexf')
+        # nx.write_gexf(cur_city_network, '../results/' + str(year) + '-' + str(year + span - 1) + '-' + city + '.gexf')
 
         if gen_all:
             print('正在生成{}到{}年的全部城市合作网络'.format(year, year + span - 1, city))
@@ -39,9 +53,27 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
             pagerank = nx.pagerank(cur_all_network, weight='weight')
             nx.set_node_attributes(cur_all_network, pagerank, 'Page Rank')
 
+            # 为城市节点添加地理编码
+            city_name_dict = nx.get_node_attributes(cur_all_network, 'CITY')
+            city_name = city_name_dict.values()
+            latitude_dict, longitude_dict = get_geocode(city_name)
+
+            latitude = {}
+            longitude = {}
+            for i, c in city_name_dict.items():
+                #如果城市经纬度不存在，则删除该节点（因为这个其实不重要）
+                if isclose(float(latitude[c]), float(999)):
+                    cur_all_network.remove_node(i)
+                    continue
+                latitude[i] = latitude_dict[c]
+                longitude[i] = longitude_dict[c]
+
+            nx.set_node_attributes(cur_all_network, latitude, 'Latitude')
+            nx.set_node_attributes(cur_all_network, longitude, 'Longitude')
+
             all_networks.append((str(year) + '-' + str(year + span - 1), cur_all_network))
-            nx.write_gexf(cur_all_network,
-                          '../results/' + str(year) + '-' + str(year + span - 1) + '-all.gexf')
+            # nx.write_gexf(cur_all_network,
+            #               '../results/' + str(year) + '-' + str(year + span - 1) + '-all.gexf')
 
     if gen_all:
         return city_networks, all_networks
@@ -50,6 +82,12 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
 
 
 def cal_hhi(networks):
+    """
+    计算各个时间段城市的HHI，以字典形式返回，键为年份区间
+
+    :param networks: 网络集合
+    :return: HHI字典
+    """
     result_dict = {}
     for network in networks:
         hhi = 0
@@ -59,7 +97,6 @@ def cal_hhi(networks):
         total_weight = sum(edge_weight.values())
         for weight in edge_weight.values():
             hhi += (weight / total_weight) ** 2
-        # print(hhi)
         result_dict[network[0]] = hhi
     return result_dict
 
