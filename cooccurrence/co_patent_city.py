@@ -57,12 +57,19 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
             city_name_dict = nx.get_node_attributes(cur_all_network, 'CITY')
             city_name = city_name_dict.values()
             latitude_dict, longitude_dict = get_geocode(city_name)
+            # print(latitude_dict)
+            # print(list(city_name_dict.values())[0])
+            # print(list(city_name_dict.values())[0] in latitude_dict)
+            # print(latitude_dict[list(city_name_dict.values())[0]])
 
             latitude = {}
             longitude = {}
             for i, c in city_name_dict.items():
-                #如果城市经纬度不存在，则删除该节点（因为这个其实不重要）
-                if isclose(float(latitude[c]), float(999)):
+                # print(type(i), type(c))
+                # 如果城市经纬度不存在，则删除该节点（因为这个其实不重要）
+                if c not in latitude_dict or isclose(float(latitude_dict[c]), float(999)):
+                    # print('{}经纬度不存在，删除该城市节点'.format(c))
+
                     cur_all_network.remove_node(i)
                     continue
                 latitude[i] = latitude_dict[c]
@@ -74,7 +81,7 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
             all_networks.append((str(year) + '-' + str(year + span - 1), cur_all_network))
             # nx.write_gexf(cur_all_network,
             #               '../results/' + str(year) + '-' + str(year + span - 1) + '-all.gexf')
-
+    print('各时期网络生成完成')
     if gen_all:
         return city_networks, all_networks
     else:
@@ -107,7 +114,8 @@ if __name__ == '__main__':
     SPAN = 18
 
     con = sqlite3.connect(r'C:\Users\Tom\Documents\energy.db')
-    city_networks, all_networks = get_each_range_network(con, START_YEAR, END_YEAR, SPAN, 'Yongin-si', gen_all=True)
+    city_networks, all_networks = get_each_range_network(con, START_YEAR, END_YEAR, SPAN, 'BEIJING', gen_all=True)
     for i in cal_hhi(city_networks).items():
         print(i)
+    print([])
     con.close()

@@ -10,8 +10,8 @@ def generate_matrix_index(data):
     classes = set()
 
     for row in data:
-        classes.add(row[0])
-        classes.add(row[1])
+        classes.add(str(row[0]).upper())
+        classes.add(str(row[1]).upper())
 
     classes = list(classes)
     classes.sort()
@@ -33,8 +33,8 @@ def get_cooccurrance_matrix(classes, data, output_path):
         classes_dict[classes[i]] = i
 
     for row in data:
-        co_matrix[classes_dict[row[0]]][classes_dict[row[1]]] += int(row[2])
-        co_matrix[classes_dict[row[1]]][classes_dict[row[0]]] += int(row[2])
+        co_matrix[classes_dict[row[0].upper()]][classes_dict[row[1].upper()]] += int(row[2])
+        co_matrix[classes_dict[row[1].upper()]][classes_dict[row[0].upper()]] += int(row[2])
 
     df = DataFrame(co_matrix, columns=classes, index=classes)
     df.to_csv(output_path)
@@ -54,7 +54,7 @@ def get_cooccurrance_network(classes, data, label_name):
     classes_dict = {}
     reverse_classes_dict = {}
     for i in range(len(classes)):
-        classes_dict[i + 1] = classes[i]
+        classes_dict[i + 1] = classes[i].upper()
         reverse_classes_dict[classes[i]] = i + 1
 
     graph = nx.Graph()
@@ -62,10 +62,10 @@ def get_cooccurrance_network(classes, data, label_name):
     nx.set_node_attributes(graph, classes_dict, label_name)
 
     for row in data:
-        if graph.has_edge(reverse_classes_dict[row[0]], reverse_classes_dict[row[1]]):
-            graph.edges[reverse_classes_dict[row[0]], reverse_classes_dict[row[1]]]['weight'] += 1
+        if graph.has_edge(reverse_classes_dict[row[0].upper()], reverse_classes_dict[row[1].upper()]):
+            graph.edges[reverse_classes_dict[row[0].upper()], reverse_classes_dict[row[1].upper()]]['weight'] += 1
         else:
-            graph.add_edge(reverse_classes_dict[row[0]], reverse_classes_dict[row[1]], weight=1)
+            graph.add_edge(reverse_classes_dict[row[0].upper()], reverse_classes_dict[row[1].upper()], weight=1)
 
     # dc = nx.degree_centrality(graph)
     # bc = nx.betweenness_centrality(graph)

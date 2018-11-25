@@ -3,7 +3,8 @@ import sqlite3
 from numpy import log
 from netUtil.cooccurrence_network import *
 
-def get_each_range_network(start, end, span, city='', gen_all=False):
+
+def get_each_range_network(con, start, end, span, city='', gen_all=False):
     """
     生成各时间窗口的IPC共现网络
 
@@ -15,11 +16,10 @@ def get_each_range_network(start, end, span, city='', gen_all=False):
     """
     city_networks = []
     all_networks = []
-    con = sqlite3.connect(r'C:\Users\Tom\Documents\energy.db')
     cursor = con.cursor()
 
     for year in range(start, end - span + 2):
-        print('正在生成{}到{}年的城市IPC共现网络'.format(year, year + span - 1))
+        print('正在生成{}到{}年{}的IPC共现网络'.format(year, year + span - 1, city))
         city_query_sql = 'SELECT `ipc1`, `ipc2`, `year` FROM energy_ipc_cooccurrence WHERE `year` BETWEEN {} AND {} AND `city` LIKE \'{}\''.format(
             year, year + span - 1, city.upper())
 
@@ -42,9 +42,8 @@ def get_each_range_network(start, end, span, city='', gen_all=False):
             all_patent_classes = generate_matrix_index(results)
             cur_all_network = get_cooccurrance_network(all_patent_classes, results, 'IPC')
             all_networks.append((year, cur_all_network))
-            # nx.write_gexf(cur_all_network, str(year) + '-' + str(year + span - 1) + '-all.gexf')
+            # nx.write_gexf(cur_all_network, '../results/' + str(year) + '-' + str(year + span - 1) + '-all.gexf')
 
-    con.close()
     if gen_all:
         return city_networks, all_networks
     else:
@@ -67,7 +66,8 @@ def find_max_k_core(network):
     return pre
 
 
-def cal_k_core(networks, span, k=0):
+# TODO:城市网络中没有与K核节点连通的部分怎么处理？
+def cal_k_core(city_networks, all_networks, span, k=0):
     """
     计算同一城市各个年份的K核相关指标，每个指标的结果以单独的字典返回，键为年份跨度
 
@@ -79,37 +79,70 @@ def cal_k_core(networks, span, k=0):
     ratio_dict = {}
     avg_max_k_cc_dict = {}
     outside_neighbors_dict = {}
-    for network in networks:
-        # 首先找到给定K核子网，计算其节点在城市全网的占比（这一步可能找不到给定K核子网，因为K过大则子网为空）
-        net = network[1]
-        knet = nx.k_core(net, k)
 
-        ratio = len(knet.nodes) / len(net.nodes)
+    # 这里的处理比较麻烦，因为城市网络和全局网络是分开生成的，所以要通过城市网络
+    # 建立对全局网络节点的映射。城市边的权重无法挽回。
+    for city_network, all_network in zip(city_networks, all_networks):
 
-        # 计算K核子网各节点接近中心度，找到最大核节点列表（有可能与K核子网相同），计算这些节点的平均接近中心度
-        # 数学意义：计算结果表示最大核节点在K核子网中的位置接近网络中心的程度（与其他节点的平均距离）
-        # 这种实现方式存在一个问题，在计算接近中心度的时候没有排除其他最大核节点，不知道影响大不大
-        knet_cc = nx.closeness_centrality(knet)
-        nx.set_node_attributes(knet, knet_cc, 'Closeness Centrality')
-        max_knet = find_max_k_core(knet)
-        max_k_cc = nx.get_node_attributes(max_knet, 'Closeness Centrality')
+        # 首先找到全局的K核子网，然后计算城市网络与全局网络K核子网的重叠部分占比
 
-        if len(max_k_cc) == 0:
-            avg_max_k_cc = 0
+        city_net = city_network[1]
+        all_net = all_network[1]
+        knet = nx.k_core(all_net, k)
+
+
+        # 重新建立联系
+        city_labels = set(nx.get_node_attributes(city_net, 'IPC').values())
+        city_nodes = set()
+        all_labels = nx.get_node_attributes(all_net, 'IPC')
+        for key, value in all_labels.items():
+            if value in city_labels:
+                city_nodes.add(key)
+        city_net = all_net.subgraph(city_nodes)
+
+        knet_nodes = set(knet.nodes)
+
+        common = 0
+        for node in knet_nodes:
+            if node in city_nodes:
+                common += 1
+
+
+        if len(knet.nodes) <= 0:
+            ratio = 0
         else:
-            avg_max_k_cc = sum(list(max_k_cc.values())) / len(max_k_cc)
+            ratio = common / len(knet.nodes)
 
-        # 计算K核子网与城市整体网络直接相连的节点数
-        k_nodes = set(knet.nodes)
+        # 计算城市网络中各个节点与最高K核全部节点的平均距离
+        # 归一化参数N选择为最高K核全部节点的数量
+        # 采用网络博客的方法来处理disconnected问题
+        city_and_knet = all_net.subgraph(city_nodes.union(knet_nodes))
+        max_knet = find_max_k_core(city_and_knet)
+        max_knet_nodes = set(max_knet.nodes)
+        all_node_sum = 0
+        N = len(max_knet_nodes)
+
+        for city_node in city_nodes:
+            single_node_sum = 0
+            for max_knet_node in max_knet_nodes:
+                try:
+                    single_node_sum += 1/(nx.shortest_path_length(city_and_knet, city_node, max_knet_node))
+                except Exception as e:
+                    single_node_sum += 0
+            all_node_sum += single_node_sum / N
+        avg_max_k_cc = all_node_sum / len(city_nodes)
+
+        # 计算城市网络与全局网络的直接相邻节点数
+        # TODO:这里会有蹭热点情况。
         outside_neighbors = set()
-        for node in k_nodes:
-            neighbors = net.neighbors(node)
+        for city_node in city_nodes:
+            neighbors = all_net.neighbors(city_node)
             for neighbor in neighbors:
-                if neighbor not in k_nodes:
+                if neighbor not in city_nodes:
                     outside_neighbors.add(neighbor)
         outside_neighbors_num = len(outside_neighbors)
 
-        range_str = str(network[0]) + '-' + str(network[0] + span - 1)
+        range_str = str(city_network[0]) + '-' + str(city_network[0] + span - 1)
         # result.append((str(network[0]) + '-' + str(network[0] + span - 1), ratio, avg_max_k_cc, outside_neighbors_num))
         ratio_dict[range_str] = ratio
         avg_max_k_cc_dict[range_str] = avg_max_k_cc
@@ -149,11 +182,16 @@ def cal_entropy(networks, span, alpha=0.5, beta=0.5):
                     1 - degree_count[node_degree_pair[1]]) * N
             importance_list.append(importance)
 
-        #对结构重要性求和得到总的结构重要性，逐一相除得到各个节点的相对重要性
+        # 对结构重要性求和得到总的结构重要性，逐一相除得到各个节点的相对重要性
         total_importance = sum(importance_list)
+
+        #考虑结构熵为0的规则网络特殊情况
+        if total_importance == 0:
+            entropys[str(network[0]) + '-' + str(network[0] + span - 1)] = 0
+            continue
         relative_importance_list = [imp / total_importance for imp in importance_list]
 
-        #利用相对重要性计算结构熵
+        # 利用相对重要性计算结构熵
         entropy = 0
         for relative_importance in relative_importance_list:
             entropy += -(relative_importance * log(relative_importance))
@@ -162,18 +200,21 @@ def cal_entropy(networks, span, alpha=0.5, beta=0.5):
     return entropys
 
 
-
 def run():
     START_YEAR = 2000
     END_YEAR = 2017
     SPAN = 10
-    CITY = 'TOKYO'
+    CITY = 'SHANGHAI'
+
+    con = sqlite3.connect(r'C:\Users\Tom\Documents\energy.db')
 
     print('==============生成网络====================')
-    city_networks, all_networks = get_each_range_network(START_YEAR, END_YEAR, SPAN, CITY, gen_all=True)
+    city_networks, all_networks = get_each_range_network(con, START_YEAR, END_YEAR, SPAN, CITY, gen_all=True)
+
+    con.close()
 
     print('==============计算K核内容=================')
-    ratio, avg_max_k_cc, outside_neighbour = cal_k_core(city_networks, SPAN, 5)
+    ratio, avg_max_k_cc, outside_neighbour = cal_k_core(city_networks,all_networks, SPAN, 2)
     print('-----K核占比------')
     print(ratio)
     print('-----最高核CC------')
@@ -193,8 +234,8 @@ def run():
 
     print('-----熵比值-----')
     entropy_result = {}
-    for k,v in city_entropy_result.items():
-        entropy_result[k] = v/all_entropy_result[k]
+    for k, v in city_entropy_result.items():
+        entropy_result[k] = v / all_entropy_result[k]
     print(entropy_result)
 
 
