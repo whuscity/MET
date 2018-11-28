@@ -33,24 +33,25 @@ def get_results(con, production):
     GEN_ALL = True
 
     flag = 0
-    for K in range(2,10):
-        print('正在计算K={}的系列结果'.format(K))
-        for city in CITIES:
-            print('正在计算{}的结果'.format(city.upper()))
-            # 分别获取单个城市及全局的知识网络与合作网络
-            if flag == 0:
-                city_pat_cls_net, all_pat_cls_net = co_patent_class.get_each_range_network(con, START_YEAR, END_YEAR,
-                                                                                           SPAN, city.upper(), GEN_ALL)
-                city_coop_net, all_city_coop_net = co_patent_city.get_each_range_network(con, START_YEAR, END_YEAR, SPAN,
-                                                                                         city.upper(), GEN_ALL)
-                flag += 1
-                GEN_ALL = False
-            else:
-                city_pat_cls_net = co_patent_class.get_each_range_network(con, START_YEAR, END_YEAR, SPAN, city.upper(),
-                                                                          GEN_ALL)
-                city_coop_net = co_patent_city.get_each_range_network(con, START_YEAR, END_YEAR, SPAN, city.upper(),
+    for city in CITIES:
+        print('正在计算{}的结果'.format(city.upper()))
+        # 分别获取单个城市及全局的知识网络与合作网络
+        if flag == 0:
+            city_pat_cls_net, all_pat_cls_net = co_patent_class.get_each_range_network(con, START_YEAR, END_YEAR,
+                                                                                       SPAN, city.upper(), GEN_ALL)
+            city_coop_net, all_city_coop_net = co_patent_city.get_each_range_network(con, START_YEAR, END_YEAR, SPAN,
+                                                                                     city.upper(), GEN_ALL)
+            flag += 1
+            GEN_ALL = False
+        else:
+            city_pat_cls_net = co_patent_class.get_each_range_network(con, START_YEAR, END_YEAR, SPAN, city.upper(),
                                                                       GEN_ALL)
+            city_coop_net = co_patent_city.get_each_range_network(con, START_YEAR, END_YEAR, SPAN, city.upper(),
+                                                                  GEN_ALL)
 
+        #网络只生成一次，更换K
+        for K in range(2, 10):
+            print('正在计算K={}的系列结果'.format(K))
             # 计算K核相关内容
             ratio, avg_max_k_cc, outside_neighbour = co_patent_class.cal_k_core(city_pat_cls_net, all_pat_cls_net, SPAN, K)
             city_entropy = co_patent_class.cal_entropy(city_pat_cls_net, SPAN, ALPHA, BETA)
@@ -156,52 +157,37 @@ def get_results(con, production):
                                  values[4][range_str], values[5][range_str], values[6][range_str], values[7][range_str],
                                  values[8][range_str], values[9][range_str], values[10][range_str], values[11][range_str],
                                  values[12][range_str], values[13][range_str], values[14][range_str], values[15][range_str],p])
-
-                            #防止城市不存在导致错误
-
-
-                            # writer.writerow(
-                            #     [city_name, values[0][range_str], values[1][range_str], values[2][range_str],
-                            #      values[3][range_str],
-                            #      values[4][range_str], values[5][range_str], values[6][range_str], values[7][range_str],
-                            #      values[8][range_str], values[9][range_str], values[10][range_str], values[11][range_str],
-                            #      '', '', '', '', p])
                 FIRST_TIME = False
                 result.clear()
-        if len(result)>0:
-            print('正在将剩余结果写入')
-            for year in range(START_YEAR, END_YEAR - SPAN + 2):
-                range_str = str(year) + '-' + str(year + SPAN - 1)
-                print('正在输出{}的结果'.format(range_str))
-                filename = '../results/csv/k_{}/{}-{}.csv'.format(K, str(year), str(year + SPAN - 1))
-                os.makedirs(os.path.dirname(filename), exist_ok=True)
+            if len(result)>0:
+                print('正在将剩余结果写入')
+                for year in range(START_YEAR, END_YEAR - SPAN + 2):
+                    range_str = str(year) + '-' + str(year + SPAN - 1)
+                    print('正在输出{}的结果'.format(range_str))
+                    filename = '../results/csv/k_{}/{}-{}.csv'.format(K, str(year), str(year + SPAN - 1))
+                    os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-                with open(filename, mode='a', newline='') as file:
-                    writer = csv.writer(file)
-                    if FIRST_TIME:
-                        writer.writerow(
-                            ['city_name', 'city_node_num', 'ipc_node_num', 'ratio', 'avg_max_k_cc', 'neighbours', 'hhi',
-                             'pagerank',
-                             'latitude', 'longitude',
-                             'relative_entropy', 'relative_entropy_node', 'relative_entropy_edge', 'average_distance',
-                             'degree_centrality', 'triangles', 'structural_hole_constraint', 'production'])
+                    with open(filename, mode='a', newline='') as file:
+                        writer = csv.writer(file)
+                        if FIRST_TIME:
+                            writer.writerow(
+                                ['city_name', 'city_node_num', 'ipc_node_num', 'ratio', 'avg_max_k_cc', 'neighbours', 'hhi',
+                                 'pagerank',
+                                 'latitude', 'longitude',
+                                 'relative_entropy', 'relative_entropy_node', 'relative_entropy_edge', 'average_distance',
+                                 'degree_centrality', 'triangles', 'structural_hole_constraint', 'production'])
 
-                    for city_name, values in result.items():
-                        try:
-                            p = production[range_str][city_name]
-                        except KeyError:
-                            p = 0
-                        writer.writerow(
-                            [city_name, values[0][range_str], values[1][range_str], values[2][range_str], values[3][range_str],
-                             values[4][range_str], values[5][range_str], values[6][range_str], values[7][range_str],
-                             values[8][range_str], values[9][range_str], values[10][range_str], values[11][range_str],
-                             values[12][range_str], values[13][range_str], values[14][range_str], values[15][range_str],p])
-                        # writer.writerow(
-                        #     [city_name, values[0][range_str], values[1][range_str], values[2][range_str], values[3][range_str],
-                        #      values[4][range_str], values[5][range_str], values[6][range_str], values[7][range_str],
-                        #      values[8][range_str], values[9][range_str], values[10][range_str], values[11][range_str], '', '',
-                        #      '', '', p])
-            FIRST_TIME = False
+                        for city_name, values in result.items():
+                            try:
+                                p = production[range_str][city_name]
+                            except KeyError:
+                                p = 0
+                            writer.writerow(
+                                [city_name, values[0][range_str], values[1][range_str], values[2][range_str], values[3][range_str],
+                                 values[4][range_str], values[5][range_str], values[6][range_str], values[7][range_str],
+                                 values[8][range_str], values[9][range_str], values[10][range_str], values[11][range_str],
+                                 values[12][range_str], values[13][range_str], values[14][range_str], values[15][range_str],p])
+                FIRST_TIME = False
 
 def get_cities(con, limit):
     query_sql = 'SELECT city FROM energy_inventor WHERE city IS NOT NULL AND city != \'\' GROUP BY city ORDER BY COUNT(*) DESC LIMIT {}'.format(
