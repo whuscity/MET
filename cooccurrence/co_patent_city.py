@@ -2,6 +2,7 @@ import networkx as nx
 from netUtil.cooccurrence_network import *
 import sqlite3
 from geoUtil.forward_geocoding import get_geocode
+from geopy.distance import great_circle
 from math import isclose
 
 
@@ -23,14 +24,11 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
     cursor = con.cursor()
 
     for year in range(start, end - span + 2):
-        print('正在生成{}到{}年{}的合作网络'.format(year, year + span - 1, city))
+        # print('正在生成{}到{}年{}的合作网络'.format(year, year + span - 1, city))
         city_query_sql = 'SELECT UPPER(TRIM(`city1`)), UPPER(TRIM(`city2`)), `year` FROM `energy_city_cooccurrence` ' \
-                         'WHERE `year` BETWEEN {} AND {} AND (`city1` LIKE \'{}\' OR `city2` LIKE \'{}\')'.format(year,
-                                                                                                                  year + span - 1,
-                                                                                                                  city,
-                                                                                                                  city)
+                         'WHERE `year` BETWEEN ? AND ? AND (`city1` LIKE ? OR `city2` LIKE ?)'
 
-        cursor.execute(city_query_sql)
+        cursor.execute(city_query_sql,(year,year + span - 1,city,city))
         results = cursor.fetchall()
 
         cities = generate_matrix_index(results)
@@ -39,11 +37,11 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
         # nx.write_gexf(cur_city_network, '../results/' + str(year) + '-' + str(year + span - 1) + '-' + city + '.gexf')
 
         if gen_all:
-            print('正在生成{}到{}年的全部城市合作网络'.format(year, year + span - 1, city))
+            # print('正在生成{}到{}年的全部城市合作网络'.format(year, year + span - 1, city))
             all_query_sql = 'SELECT UPPER(TRIM(`city1`)), UPPER(TRIM(`city2`)), `year` FROM `energy_city_cooccurrence` ' \
-                            'WHERE `year` BETWEEN {} AND {}'.format(year, year + span - 1)
+                            'WHERE `year` BETWEEN ? AND ?'
 
-            cursor.execute(all_query_sql)
+            cursor.execute(all_query_sql,(year, year + span - 1))
             results = cursor.fetchall()
 
             all_cities = generate_matrix_index(results)
@@ -57,19 +55,12 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
             city_name_dict = nx.get_node_attributes(cur_all_network, 'CITY')
             city_name = city_name_dict.values()
             latitude_dict, longitude_dict = get_geocode(city_name)
-            # print(latitude_dict)
-            # print(list(city_name_dict.values())[0])
-            # print(list(city_name_dict.values())[0] in latitude_dict)
-            # print(latitude_dict[list(city_name_dict.values())[0]])
 
             latitude = {}
             longitude = {}
             for i, c in city_name_dict.items():
-                # print(type(i), type(c))
                 # 如果城市经纬度不存在，则删除该节点（因为这个其实不重要）
                 if c not in latitude_dict or isclose(float(latitude_dict[c]), float(999)):
-                    # print('{}经纬度不存在，删除该城市节点'.format(c))
-
                     cur_all_network.remove_node(i)
                     continue
                 latitude[i] = latitude_dict[c]
@@ -77,6 +68,33 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
 
             nx.set_node_attributes(cur_all_network, latitude, 'Latitude')
             nx.set_node_attributes(cur_all_network, longitude, 'Longitude')
+
+            #为城市节点添加平均距离（未归一）
+            print('正在计算全局网络中各城市的平均距离，可能耗时较长')
+            avg_distance_dict = {}
+            for index in latitude.keys():
+                city1 = (latitude[index], longitude[index])
+                single_city_distance_sum = 0
+                for index2 in latitude.keys():
+                    if index == index2:
+                        continue
+                    else:
+                        city2 = (latitude[index2], longitude[index2])
+                        single_city_distance_sum += great_circle(city1, city2).kilometers
+                avg_distance_dict[index] = single_city_distance_sum/(len(latitude)-1)
+            print(avg_distance_dict)
+            nx.set_node_attributes(cur_all_network, avg_distance_dict, 'Average Distance')
+
+            #为城市添加点度中心度、集聚系数、结构洞计算
+            print('在正在计算基础指标，结构洞计算可能耗时较长')
+            dc = nx.degree_centrality(cur_all_network)
+            triangle = nx.triangles(cur_all_network)
+            sh = nx.constraint(cur_all_network)
+
+            nx.set_node_attributes(cur_all_network, dc, 'Normalized Degree Centrality')
+            nx.set_node_attributes(cur_all_network, triangle, 'Triangles')
+            nx.set_node_attributes(cur_all_network, sh, 'Structural Hole Constraint')
+
 
             all_networks.append((str(year) + '-' + str(year + span - 1), cur_all_network))
             # nx.write_gexf(cur_all_network,
@@ -106,6 +124,13 @@ def cal_hhi(networks):
             hhi += (weight / total_weight) ** 2
         result_dict[network[0]] = hhi
     return result_dict
+
+# def cal_smallworld(networks):
+#     result_dict = {}
+#     for network in networks:
+#         net:nx.Graph = network[1]
+#         result_dict[network[0]] = nx.algorithms.smallworld.sigma(net)
+#     return result_dict
 
 
 if __name__ == '__main__':

@@ -19,29 +19,27 @@ def get_each_range_network(con, start, end, span, city='', gen_all=False):
     cursor = con.cursor()
 
     for year in range(start, end - span + 2):
-        print('正在生成{}到{}年{}的IPC共现网络'.format(year, year + span - 1, city))
-        city_query_sql = 'SELECT `ipc1`, `ipc2`, `year` FROM energy_ipc_cooccurrence WHERE `year` BETWEEN {} AND {} AND `city` LIKE \'{}\''.format(
-            year, year + span - 1, city.upper())
+        # print('正在生成{}到{}年{}的IPC共现网络'.format(year, year + span - 1, city))
+        city_query_sql = 'SELECT `ipc1`, `ipc2`, `year` FROM energy_ipc_cooccurrence WHERE `year` BETWEEN ? AND ? AND `city` LIKE ?'
 
-        cursor.execute(city_query_sql)
+        cursor.execute(city_query_sql, (year, year + span - 1, city.upper()))
         results = cursor.fetchall()
 
         city_patent_classes = generate_matrix_index(results)
         cur_city_network = get_cooccurrance_network(city_patent_classes, results, 'IPC')
-        city_networks.append((year, cur_city_network))
-        # nx.write_gexf(cur_city_network, str(year) + '-' + str(year + span - 1) + '-' + city + '.gexf')
+        city_networks.append((str(year) + '-' + str(year + span - 1), cur_city_network))
+        # nx.write_gexf(cur_city_network, '../results/' + str(year) + '-' + str(year + span - 1) + '-' + city + '.gexf')
 
         if gen_all:
-            print('正在生成{}到{}年的全局IPC共现网络'.format(year, year + span - 1))
-            all_query_sql = 'SELECT `ipc1`, `ipc2`, `year` FROM energy_ipc_cooccurrence WHERE `year` BETWEEN {} AND {}'.format(
-                year, year + span - 1)
+            # print('正在生成{}到{}年的全局IPC共现网络'.format(year, year + span - 1))
+            all_query_sql = 'SELECT `ipc1`, `ipc2`, `year` FROM energy_ipc_cooccurrence WHERE `year` BETWEEN ? AND ?'
 
-            cursor.execute(all_query_sql)
+            cursor.execute(all_query_sql, (year, year + span - 1))
             results = cursor.fetchall()
 
             all_patent_classes = generate_matrix_index(results)
             cur_all_network = get_cooccurrance_network(all_patent_classes, results, 'IPC')
-            all_networks.append((year, cur_all_network))
+            all_networks.append((str(year) + '-' + str(year + span - 1), cur_all_network))
             # nx.write_gexf(cur_all_network, '../results/' + str(year) + '-' + str(year + span - 1) + '-all.gexf')
 
     if gen_all:
@@ -130,7 +128,10 @@ def cal_k_core(city_networks, all_networks, span, k=0):
                 except Exception as e:
                     single_node_sum += 0
             all_node_sum += single_node_sum / N
-        avg_max_k_cc = all_node_sum / len(city_nodes)
+        if len(city_nodes) <= 0:
+            avg_max_k_cc = 0
+        else:
+            avg_max_k_cc = all_node_sum / len(city_nodes)
 
         # 计算城市网络与全局网络的直接相邻节点数
         # TODO:这里会有蹭热点情况。
@@ -142,7 +143,7 @@ def cal_k_core(city_networks, all_networks, span, k=0):
                     outside_neighbors.add(neighbor)
         outside_neighbors_num = len(outside_neighbors)
 
-        range_str = str(city_network[0]) + '-' + str(city_network[0] + span - 1)
+        range_str = city_network[0]
         # result.append((str(network[0]) + '-' + str(network[0] + span - 1), ratio, avg_max_k_cc, outside_neighbors_num))
         ratio_dict[range_str] = ratio
         avg_max_k_cc_dict[range_str] = avg_max_k_cc
@@ -187,7 +188,7 @@ def cal_entropy(networks, span, alpha=0.5, beta=0.5):
 
         #考虑结构熵为0的规则网络特殊情况
         if total_importance == 0:
-            entropys[str(network[0]) + '-' + str(network[0] + span - 1)] = 0
+            entropys[network[0]] = 0
             continue
         relative_importance_list = [imp / total_importance for imp in importance_list]
 
@@ -196,7 +197,7 @@ def cal_entropy(networks, span, alpha=0.5, beta=0.5):
         for relative_importance in relative_importance_list:
             entropy += -(relative_importance * log(relative_importance))
 
-        entropys[str(network[0]) + '-' + str(network[0] + span - 1)] = entropy
+        entropys[network[0]] = entropy
     return entropys
 
 
