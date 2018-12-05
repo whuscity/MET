@@ -1,21 +1,45 @@
 from DBUtil import get_db_connection
 import time
+import os
 
 
 def get_candidates(con):
-    #TODO:需要注意的是，标题和摘要的联合计算还没有实现，目前仅能分别计算
-    query_ngram = 'SELECT b.nid, b.ngram FROM cndblp_abs_ngram AS a ' \
-                  'LEFT JOIN cndblp_ngram_list AS b ' \
-                  'ON a.ngram = b.nid GROUP BY b.nid LIMIT 10000'
+    # TODO:需要注意的是，标题和摘要的联合计算还没有实现，目前仅能分别计算
+    query_abs_ngram = 'SELECT b.nid, b.ngram FROM cndblp_abs_ngram AS a ' \
+                      'LEFT JOIN cndblp_ngram_list AS b ' \
+                      'ON a.ngram = b.nid GROUP BY b.nid'
+    # query_title_ngram = 'SELECT b.nid, b.ngram FROM cndblp_title_ngram AS a ' \
+    #                     'LEFT JOIN cndblp_ngram_list AS b ' \
+    #                     'ON a.ngram = b.nid GROUP BY b.nid'
+    # query_keyword_ngram = 'SELECT b.nid, b.ngram FROM cndblp_keyword_ngram AS a ' \
+    #                     'LEFT JOIN cndblp_ngram_list AS b ' \
+    #                     'ON a.ngram = b.nid GROUP BY b.nid'
 
+    query_title_keyword_ngram = 'SELECT b.nid, b.ngram FROM cndblp_title_keyword_ngram AS a ' \
+                        'LEFT JOIN cndblp_ngram_list AS b ' \
+                        'ON a.ngram = b.nid GROUP BY b.nid'
+
+    # cursor = con.cursor()
+    # cursor.execute(query_title_ngram)
+    # title_results = cursor.fetchall()
+    # cursor.execute(query_keyword_ngram)
+    # keyword_results = cursor.fetchall()
+    #
+    # result_set = set()
+    # for title_ngram in title_results:
+    #     result_set.add(title_ngram)
+    # for keyword in keyword_results:
+    #     result_set.add(keyword)
+    #
+    # result_set = list(result_set)
+    # result_set.sort(key=lambda x:x[0])
     cursor = con.cursor()
-    cursor.execute(query_ngram)
-    results = cursor.fetchall()
+    cursor.execute(query_title_keyword_ngram)
+    result = cursor.fetchall()
+    return result
 
-    return results
 
-
-def cal_meme_score(con, candidates, delta=3):
+def cal_meme_score(con, candidates, output_path, delta=3):
     """
     根据论文计算Meme score
     :param con: 数据库连接
@@ -24,15 +48,43 @@ def cal_meme_score(con, candidates, delta=3):
     :return: None
     """
     query_d_to_dm = 'SELECT COUNT(DISTINCT a.PAPER_ID) FROM cndblp_inner_reference AS a ' \
-                    'LEFT JOIN cndblp_abs_ngram AS b ' \
+                    'LEFT JOIN cndblp_title_keyword_ngram AS b ' \
                     'ON a.cited_paper_id = b.paper_id WHERE ngram = {}'
 
+    # query_d_to_dm = 'SELECT COUNT(DISTINCT PAPER_ID) FROM ' \
+    #                 '(SELECT a.PAPER_ID FROM cndblp_inner_reference AS a ' \
+    #                 'LEFT JOIN ' \
+    #                 'cndblp_title_ngram AS b ON a.cited_paper_id = b.paper_id WHERE ngram = {} ' \
+    #                 'UNION ALL ' \
+    #                 'SELECT c.PAPER_ID FROM cndblp_inner_reference AS c ' \
+    #                 'LEFT JOIN ' \
+    #                 'cndblp_keyword_ngram AS d ON c.cited_paper_id = d.paper_id WHERE ngram = {}) AS e'
+
     query_dm = 'SELECT COUNT(DISTINCT a.PAPER_ID) FROM cndblp_inner_reference AS a ' \
-               'LEFT JOIN cndblp_abs_ngram AS b ' \
+               'LEFT JOIN cndblp_title_keyword_ngram AS b ' \
                'ON a.paper_id = b.paper_id WHERE ngram={}'
 
-    query_dm_to_dm = 'SELECT COUNT(DISTINCT citing_paper_id) FROM dm_to_dm ' \
-                     'WHERE citing_ngram = {} AND cited_ngram = {}'
+    # query_dm = 'SELECT COUNT(DISTINCT PAPER_ID) FROM ' \
+    #            '(SELECT a.PAPER_ID FROM cndblp_inner_reference AS a ' \
+    #            'LEFT JOIN ' \
+    #            'cndblp_title_ngram AS b ON a.paper_id = b.paper_id WHERE ngram = {} ' \
+    #            'UNION ALL ' \
+    #            'SELECT c.PAPER_ID FROM cndblp_inner_reference AS c ' \
+    #            'LEFT JOIN cndblp_keyword_ngram AS d ON c.paper_id = d.paper_id WHERE ngram = {}) AS e'
+
+    query_dm_to_dm = 'SELECT COUNT(DISTINCT a.PAPER_ID) FROM cndblp_inner_reference AS a ' \
+                     'INNER JOIN cndblp_title_keyword_ngram AS b ON a.paper_id = b.paper_id ' \
+                     'INNER JOIN cndblp_title_keyword_ngram AS c ON a.cited_paper_id = c.paper_id ' \
+                     'WHERE b.ngram = {} AND c.ngram = {}'
+
+    # query_dm_to_dm = 'SELECT COUNT(DISTINCT paper_id) FROM ' \
+    #                  '(SELECT a.PAPER_ID FROM cndblp_inner_reference AS a ' \
+    #                  'INNER JOIN cndblp_title_ngram AS b ON a.paper_id = b.paper_id ' \
+    #                  'INNER JOIN cndblp_title_ngram AS c ON a.cited_paper_id = c.paper_id WHERE b.ngram = {} AND c.ngram = {} ' \
+    #                  'UNION ALL ' \
+    #                  'SELECT d.PAPER_ID FROM cndblp_inner_reference AS d ' \
+    #                  'INNER JOIN cndblp_keyword_ngram AS e ON d.paper_id = e.paper_id ' \
+    #                  'INNER JOIN cndblp_keyword_ngram AS f ON d.cited_paper_id = f.paper_id WHERE e.ngram = {} AND f.ngram = {}) AS g'
 
     # query_total_paper_num = 'SELECT COUNT(*) FROM `cndblp_paper`'
     # 有BUG，文章总数应该是来自内部引证表的施引、参考文献两列的DISTINCT（已修复）
@@ -43,7 +95,13 @@ def cal_meme_score(con, candidates, delta=3):
                             'LEFT JOIN `cndblp_paper` AS b ' \
                             'ON a.paper_id = b.paper_id'
 
-    query_ngram_occur_paper = 'SELECT COUNT(ngram) FROM cndblp_abs_ngram WHERE ngram = {} GROUP BY ngram'
+    # query_ngram_occur_paper = 'SELECT COUNT(DISTINCT paper_id) FROM ' \
+    #                           '(SELECT * FROM cndblp_title_ngram WHERE ngram = {} ' \
+    #                           'UNION ALL ' \
+    #                           'SELECT * FROM cndblp_keyword_ngram WHERE ngram = {}) AS a'
+
+    query_ngram_occur_paper = 'SELECT COUNT(DISTINCT paper_id) FROM ' \
+                              '`cndblp_title_keyword_ngram` WHERE ngram = {}'
 
     cursor = con.cursor()
     cursor.execute(query_total_paper_num)
@@ -108,28 +166,35 @@ def cal_meme_score(con, candidates, delta=3):
         score_result.append((candidate[0], candidate[1], dm_to_dm, d_to_dm, dm_to_d, d_to_d, ngram_occur_num,
                              total_paper_num, meme_score))
         if len(score_result) > 1000:
-            with open('result.csv', 'a', encoding='utf-8') as file:
+            with open(output_path, 'a', encoding='utf-8') as file:
                 for value in score_result:
-                    file.write(','.join(list(map(str, value))))
-                    file.write('\n')
+                    file.write('"')
+                    file.write('","'.join(list(map(str, value))))
+                    file.write('"\n')
             score_result.clear()
 
         i += 1
-    with open('result.csv', 'a', encoding='utf-8') as file:
+    with open(output_path, 'a', encoding='utf-8') as file:
         for value in score_result:
-            file.write(','.join(list(map(str, value))))
-            file.write('\n')
+            file.write('"')
+            file.write('","'.join(list(map(str, value))))
+            file.write('"\n')
 
 
 if __name__ == '__main__':
-    con = get_db_connection('patent_thesis')
+    conf = 'health_statistics'
+    con = get_db_connection(conf)
     print('正在获取候选词列表')
     candidates = get_candidates(con)
-    print('候选词列表获取完成，开始计算meme分数')
-    with open('result.csv', 'w', encoding='utf-8') as file:
-        file.write('nid,ngram,dm_to_dm, d_to_dm, dm_to_d, d_to_d, ngram_occur_num,total_paper_num, meme_score\n')
+    print(candidates[:5])
+    print('候选词列表获取完成，共有{}个候选词，开始计算meme分数'.format(str(len(candidates))))
 
-    cal_meme_score(con, candidates)
+    filename = '../results/meme/{}.csv'.format(conf)
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(filename, 'w', encoding='utf-8') as file:
+        file.write(
+            '"nid","ngram","dm_to_dm","d_to_dm","dm_to_d","d_to_d","ngram_occur_num","total_paper_num","meme_score"\n')
 
-    # cal_meme_score(con, [('4663262','disilicide films')])
+    cal_meme_score(con, candidates, filename, delta=3)
+
     con.close()

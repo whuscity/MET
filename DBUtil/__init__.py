@@ -16,6 +16,7 @@ def get_db_connection(config):
     con.autocommit(True)
     # cursor = con.cursor()
     # con.close()
+    print('获取数据库连接成功')
     return con
 
 if __name__ == '__main__':
