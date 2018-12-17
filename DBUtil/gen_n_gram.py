@@ -58,8 +58,8 @@ def gen_n_gram_v3(ngram=3):
     key = 1
 
     # 开启两个连接，一个用于分批查询，另一个用于在查询过程中插入数据
-    con = get_db_connection('health_statistics')
-    con2 = get_db_connection('health_statistics')
+    con = get_db_connection('patent_thesis')
+    con2 = get_db_connection('patent_thesis')
 
     cursor = con.cursor()
     cursor2 = con.cursor()

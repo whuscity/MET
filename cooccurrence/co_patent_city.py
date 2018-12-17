@@ -73,20 +73,22 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
             print('正在计算全局网络中各城市的平均距离，可能耗时较长')
             avg_distance_dict = {}
             for index in latitude.keys():
-                city1 = (latitude[index], longitude[index])
-                single_city_distance_sum = 0
-                for index2 in latitude.keys():
-                    if index == index2:
-                        continue
-                    else:
-                        city2 = (latitude[index2], longitude[index2])
-                        single_city_distance_sum += great_circle(city1, city2).kilometers
-                avg_distance_dict[index] = single_city_distance_sum/(len(latitude)-1)
+                # city1 = (latitude[index], longitude[index])
+                # single_city_distance_sum = 0
+                # for index2 in latitude.keys():
+                #     if index == index2:
+                #         continue
+                #     else:
+                #         city2 = (latitude[index2], longitude[index2])
+                #         single_city_distance_sum += great_circle(city1, city2).kilometers
+                # avg_distance_dict[index] = single_city_distance_sum/(len(latitude)-1)
+                # TODO:为了节省调试时间此处不计算平均距离
+                avg_distance_dict[index] = 0
             print(avg_distance_dict)
             nx.set_node_attributes(cur_all_network, avg_distance_dict, 'Average Distance')
 
             #为城市添加点度中心度、集聚系数、结构洞计算
-            print('在正在计算基础指标，结构洞计算可能耗时较长')
+            print('在正在计算合作网络基础指标，结构洞计算可能耗时较长')
             dc = nx.degree_centrality(cur_all_network)
             triangle = nx.triangles(cur_all_network)
             sh = nx.constraint(cur_all_network)
@@ -125,6 +127,20 @@ def cal_hhi(networks):
         result_dict[network[0]] = hhi
     return result_dict
 
+def cal_density(networks):
+    """
+    计算各个时间段城市合作网络的密度，以字典形式返回，键为年份区间
+
+    :param networks: 网络集合
+    :return: 密度字典
+    """
+    result_dict = {}
+    for network in networks:
+        net: nx.Graph = network[1]
+        density = nx.density(net)
+        result_dict[network[0]] = density
+    return result_dict
+
 # def cal_smallworld(networks):
 #     result_dict = {}
 #     for network in networks:
@@ -136,11 +152,10 @@ def cal_hhi(networks):
 if __name__ == '__main__':
     START_YEAR = 2000
     END_YEAR = 2017
-    SPAN = 18
+    SPAN = 5
 
     con = sqlite3.connect(r'C:\Users\Tom\Documents\energy.db')
-    city_networks, all_networks = get_each_range_network(con, START_YEAR, END_YEAR, SPAN, 'BEIJING', gen_all=True)
-    for i in cal_hhi(city_networks).items():
+    city_networks = get_each_range_network(con, START_YEAR, END_YEAR, SPAN, 'TOKYO', gen_all=False)
+    for i in cal_density(city_networks).items():
         print(i)
-    print([])
     con.close()

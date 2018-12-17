@@ -28,7 +28,7 @@ global all_city_coop_net
 all_city_coop_net = None
 
 
-def get_results(con, cities, production, K):
+def get_results(con, cities, extra_control_variables, production, K):
     global FIRST_TIME
     global all_pat_cls_net
     global all_city_coop_net
@@ -54,7 +54,8 @@ def get_results(con, cities, production, K):
                                                                   GEN_ALL)
 
         # 计算K核相关内容
-        ratio, avg_max_k_cc, outside_neighbour = co_patent_class.cal_k_core(city_pat_cls_net, all_pat_cls_net, SPAN, K)
+        ratio, avg_max_k_cc, outside_neighbour, avg_dc, avg_triangle, avg_sh = co_patent_class.cal_k_core(
+            city_pat_cls_net, all_pat_cls_net, SPAN, K)
         city_entropy = co_patent_class.cal_entropy(city_pat_cls_net, SPAN, ALPHA, BETA)
         all_entropy = co_patent_class.cal_entropy(all_pat_cls_net, SPAN, ALPHA, BETA)
         relative_entropy = {}
@@ -73,9 +74,13 @@ def get_results(con, cities, production, K):
         for k, v in city_entropy.items():
             relative_entropy_edge[k] = v / all_entropy[k]
 
+        # 计算知识网络的基础指标
+        ipc_density = co_patent_class.cal_density(city_pat_cls_net)
+
         # 计算城市合作网络相关内容（以及基本指标）
 
         hhi = co_patent_city.cal_hhi(city_coop_net)
+        density = co_patent_city.cal_density(city_coop_net)
         page_rank = {}
         latitude = {}
         longitude = {}
@@ -125,10 +130,32 @@ def get_results(con, cities, production, K):
             else:
                 ipc_node_num[each_year_net3[0]] = len(each_year_net3[1].nodes)
 
-        result[city.upper()] = (city_node_num, ipc_node_num,
-                                ratio, avg_max_k_cc, outside_neighbour, hhi, page_rank, latitude, longitude,
-                                relative_entropy,
-                                relative_entropy_node, relative_entropy_edge, avg_distance, dc, triangle, sh)
+        # result[city.upper()] = (city_node_num, ipc_node_num,
+        #                         ratio, avg_max_k_cc, outside_neighbour, hhi, page_rank, latitude, longitude,
+        #                         relative_entropy,
+        #                         relative_entropy_node, relative_entropy_edge, avg_distance, dc, triangle, sh)
+        result[city.upper()] = {'city_node_num': city_node_num,
+                                'ipc_node_num': ipc_node_num,
+                                'ratio': ratio,
+                                'avg_max_k_cc': avg_max_k_cc,
+                                'outside_neighbour': outside_neighbour,
+                                'hhi': hhi,
+                                'page_rank': page_rank,
+                                'latitude': latitude,
+                                'longitude': longitude,
+                                'relative_entropy': relative_entropy,
+                                'relative_entropy_node': relative_entropy_node,
+                                'relative_entropy_edge': relative_entropy_edge,
+                                'avg_distance': avg_distance,
+                                'city_dc': dc,
+                                'city_triangle': triangle,
+                                'city_sh': sh,
+                                'city_density': density,
+                                'ipc_dc': avg_dc,
+                                'ipc_triangle': avg_triangle,
+                                'ipc_sh': avg_sh,
+                                'ipc_density': ipc_density}
+
         print('{}的结果计算完成'.format(city.upper()))
         if len(result) >= 100:
             print('正在将缓存中的结果写入')
@@ -142,24 +169,90 @@ def get_results(con, cities, production, K):
                     writer = csv.writer(file)
                     if FIRST_TIME:
                         writer.writerow(
-                            ['city_name', 'city_node_num', 'ipc_node_num', 'ratio', 'avg_max_k_cc', 'neighbours', 'hhi',
+                            ['city_name',
+                             'city_node_num',
+                             'ipc_node_num',
+                             'ratio',
+                             'avg_max_k_cc',
+                             'neighbours',
+                             'hhi',
                              'pagerank',
-                             'latitude', 'longitude',
-                             'relative_entropy', 'relative_entropy_node', 'relative_entropy_edge', 'average_distance',
-                             'degree_centrality', 'triangles', 'structural_hole_constraint', 'production'])
+                             'latitude',
+                             'longitude',
+                             'relative_entropy',
+                             'relative_entropy_node',
+                             'relative_entropy_edge',
+                             'average_distance',
+                             'city_degree_centrality',
+                             'city_triangles',
+                             'city_structural_hole_constraint',
+                             'city_density',
+                             'ipc_degree_centrality',
+                             'ipc_triangles',
+                             'ipc_structural_hole_constraint',
+                             'ipc_density',
+                             'knowledge_amount',
+                             'inventor_amount',
+                             'company_amount',
+                             'production_inventor',
+                             'production_origin',
+                             'production_concat'])
 
                     for city_name, values in result.items():
-                        try:
-                            p = production[range_str][city_name]
-                        except KeyError:
-                            p = 0
+                        # 三种产量
+                        p_inventor = 0 if city_name not in production[range_str]['inventor'] else \
+                            production[range_str]['inventor'][city_name]
+                        p_origin = 0 if city_name not in production[range_str]['origin'] else \
+                            production[range_str]['origin'][city_name]
+                        p_concat = 0 if city_name not in production[range_str]['concat'] else \
+                            production[range_str]['concat'][city_name]
+
+                        # 额外的控制变量
+                        knowledge_amount = 0 if city_name not in extra_control_variables[range_str]['knowledge_amount'] \
+                            else extra_control_variables[range_str]['knowledge_amount'][city_name]
+                        inventor_amount = 0 if city_name not in extra_control_variables[range_str]['inventor_amount'] \
+                            else extra_control_variables[range_str]['inventor_amount'][city_name]
+                        company_amount = 0 if city_name not in extra_control_variables[range_str]['company_amount'] \
+                            else extra_control_variables[range_str]['company_amount'][city_name]
+
+                        # try:
+                        #     p_inventor = production[range_str]['inventor'][city_name]
+                        #     p_origin = production[range_str]['origin'][city_name]
+                        #     p_concat = production[range_str]['concat'][city_name]
+                        #
+                        # except KeyError:
+                        #     p_inventor = 0
+                        #     p_origin = 0
+                        #     p_concat = 0
                         writer.writerow(
-                            [city_name, values[0][range_str], values[1][range_str], values[2][range_str],
-                             values[3][range_str],
-                             values[4][range_str], values[5][range_str], values[6][range_str], values[7][range_str],
-                             values[8][range_str], values[9][range_str], values[10][range_str], values[11][range_str],
-                             values[12][range_str], values[13][range_str], values[14][range_str], values[15][range_str],
-                             p])
+                            [city_name,
+                             values['city_node_num'][range_str],
+                             values['ipc_node_num'][range_str],
+                             values['ratio'][range_str],
+                             values['avg_max_k_cc'][range_str],
+                             values['outside_neighbour'][range_str],
+                             values['hhi'][range_str],
+                             values['page_rank'][range_str],
+                             values['latitude'][range_str],
+                             values['longitude'][range_str],
+                             values['relative_entropy'][range_str],
+                             values['relative_entropy_node'][range_str],
+                             values['relative_entropy_edge'][range_str],
+                             values['avg_distance'][range_str],
+                             values['city_dc'][range_str],
+                             values['city_triangle'][range_str],
+                             values['city_sh'][range_str],
+                             values['city_density'][range_str],
+                             values['ipc_dc'][range_str],
+                             values['ipc_triangle'][range_str],
+                             values['ipc_sh'][range_str],
+                             values['ipc_density'][range_str],
+                             knowledge_amount,
+                             inventor_amount,
+                             company_amount,
+                             p_inventor,
+                             p_origin,
+                             p_concat])
 
             FIRST_TIME = False
             result.clear()
@@ -175,24 +268,90 @@ def get_results(con, cities, production, K):
                 writer = csv.writer(file)
                 if FIRST_TIME:
                     writer.writerow(
-                        ['city_name', 'city_node_num', 'ipc_node_num', 'ratio', 'avg_max_k_cc', 'neighbours', 'hhi',
+                        ['city_name',
+                         'city_node_num',
+                         'ipc_node_num',
+                         'ratio',
+                         'avg_max_k_cc',
+                         'neighbours',
+                         'hhi',
                          'pagerank',
-                         'latitude', 'longitude',
-                         'relative_entropy', 'relative_entropy_node', 'relative_entropy_edge', 'average_distance',
-                         'degree_centrality', 'triangles', 'structural_hole_constraint', 'production'])
+                         'latitude',
+                         'longitude',
+                         'relative_entropy',
+                         'relative_entropy_node',
+                         'relative_entropy_edge',
+                         'average_distance',
+                         'city_degree_centrality',
+                         'city_triangles',
+                         'city_structural_hole_constraint',
+                         'city_density',
+                         'ipc_degree_centrality',
+                         'ipc_triangles',
+                         'ipc_structural_hole_constraint',
+                         'ipc_density',
+                         'knowledge_amount',
+                         'inventor_amount',
+                         'company_amount',
+                         'production_inventor',
+                         'production_origin',
+                         'production_concat'])
 
                 for city_name, values in result.items():
-                    try:
-                        p = production[range_str][city_name]
-                    except KeyError:
-                        p = 0
-                    writer.writerow(
-                        [city_name, values[0][range_str], values[1][range_str], values[2][range_str],
-                         values[3][range_str],
-                         values[4][range_str], values[5][range_str], values[6][range_str], values[7][range_str],
-                         values[8][range_str], values[9][range_str], values[10][range_str], values[11][range_str],
-                         values[12][range_str], values[13][range_str], values[14][range_str], values[15][range_str], p])
+                    # 三种产量
+                    p_inventor = 0 if city_name not in production[range_str]['inventor'] else \
+                        production[range_str]['inventor'][city_name]
+                    p_origin = 0 if city_name not in production[range_str]['origin'] else \
+                        production[range_str]['origin'][city_name]
+                    p_concat = 0 if city_name not in production[range_str]['concat'] else \
+                        production[range_str]['concat'][city_name]
 
+                    # 额外的控制变量
+                    knowledge_amount = 0 if city_name not in extra_control_variables[range_str]['knowledge_amount'] \
+                        else extra_control_variables[range_str]['knowledge_amount'][city_name]
+                    inventor_amount = 0 if city_name not in extra_control_variables[range_str]['inventor_amount'] \
+                        else extra_control_variables[range_str]['inventor_amount'][city_name]
+                    company_amount = 0 if city_name not in extra_control_variables[range_str]['company_amount'] \
+                        else extra_control_variables[range_str]['company_amount'][city_name]
+
+                    # try:
+                    #     p_inventor = production[range_str]['inventor'][city_name]
+                    #     p_origin = production[range_str]['origin'][city_name]
+                    #     p_concat = production[range_str]['concat'][city_name]
+                    #
+                    # except KeyError:
+                    #     p_inventor = 0
+                    #     p_origin = 0
+                    #     p_concat = 0
+                    writer.writerow(
+                        [city_name,
+                         values['city_node_num'][range_str],
+                         values['ipc_node_num'][range_str],
+                         values['ratio'][range_str],
+                         values['avg_max_k_cc'][range_str],
+                         values['outside_neighbour'][range_str],
+                         values['hhi'][range_str],
+                         values['page_rank'][range_str],
+                         values['latitude'][range_str],
+                         values['longitude'][range_str],
+                         values['relative_entropy'][range_str],
+                         values['relative_entropy_node'][range_str],
+                         values['relative_entropy_edge'][range_str],
+                         values['avg_distance'][range_str],
+                         values['city_dc'][range_str],
+                         values['city_triangle'][range_str],
+                         values['city_sh'][range_str],
+                         values['city_density'][range_str],
+                         values['ipc_dc'][range_str],
+                         values['ipc_triangle'][range_str],
+                         values['ipc_sh'][range_str],
+                         values['ipc_density'][range_str],
+                         knowledge_amount,
+                         inventor_amount,
+                         company_amount,
+                         p_inventor,
+                         p_origin,
+                         p_concat])
         FIRST_TIME = False
 
 
@@ -216,31 +375,124 @@ def get_each_year_production(con):
     cursor = con.cursor()
     result_dict = {}
     for year in range(START_YEAR, END_YEAR - SPAN + 2):
-        query = 'SELECT `city`, COUNT(*) AS `num` ' \
-                'FROM (SELECT `patnum`, `city`, `year` ' \
-                'FROM (SELECT a.*, CAST(SUBSTR(b.`grantdate`,1,4) AS INTEGER) as `year` ' \
-                'FROM `energy_inventor` as a LEFT JOIN `energy_conservation` as b ON a.`patnum` = b.`patnum`) ' \
-                'WHERE year = ? AND `city` IS NOT NULL AND `city` != \'\'' \
-                'GROUP BY `patnum`, `city`) GROUP BY UPPER(`city`) ORDER BY `num` DESC'
+        query_inventor_production = 'SELECT `city`, COUNT(*) AS `num` ' \
+                                    'FROM (SELECT `patnum`, `city`, `year` ' \
+                                    'FROM (SELECT a.*, CAST(SUBSTR(b.`grantdate`,1,4) AS INTEGER) as `year` ' \
+                                    'FROM `energy_inventor` as a LEFT JOIN `energy_conservation` as b ON a.`patnum` = b.`patnum`) ' \
+                                    'WHERE year = ? AND `city` IS NOT NULL AND `city` != \'\'' \
+                                    'GROUP BY `patnum`, `city`) ' \
+                                    'WHERE `city` IS NOT NULL AND `city` != \'\'' \
+                                    'GROUP BY UPPER(`city`) ' \
+                                    'ORDER BY `num` DESC'
 
-        cursor.execute(query, (year + SPAN,))
+        query_origin_production = 'SELECT `city`, CAST(SUBSTR(grantdate,1,4) AS INTEGER) AS YEAR ' \
+                                  'FROM energy_conservation ' \
+                                  'WHERE YEAR=? AND `city` IS NOT NULL AND `city` != \'\' ' \
+                                  'GROUP BY city'
+
+        query_concat_production = 'SELECT city, COUNT(DISTINCT patnum) AS num ' \
+                                  'FROM ( SELECT patnum, city, CAST(SUBSTR(grantdate,1,4) AS INTEGER) AS year ' \
+                                  'FROM energy_conservation WHERE year=? ' \
+                                  'UNION' \
+                                  'SELECT `patnum`, UPPER(`city`), `year` ' \
+                                  'FROM (SELECT a.*, CAST(SUBSTR(b.`grantdate`,1,4) AS INTEGER) as `year` ' \
+                                  'FROM `energy_inventor` as a ' \
+                                  'LEFT JOIN ' \
+                                  '`energy_conservation` as b ON a.`patnum` = b.`patnum`) ' \
+                                  'WHERE year = ? AND `city` IS NOT NULL AND `city` != \'\' ' \
+                                  'GROUP BY `patnum`, `city`) ' \
+                                  'WHERE `city` IS NOT NULL AND `city` != \'\'' \
+                                  'GROUP BY `city` ' \
+                                  'ORDER BY num DESC'
+
+        result_dict[str(year) + '-' + str(year + SPAN - 1)] = {}
+        # 获取根据inventor表得到的产出
+        cursor.execute(query_inventor_production, (year + SPAN,))
         results = cursor.fetchall()
         inner_dict = {}
         for row in results:
             inner_dict[row[0].upper()] = row[1]
-        result_dict[str(year) + '-' + str(year + SPAN - 1)] = inner_dict
+        result_dict[str(year) + '-' + str(year + SPAN - 1)]['inventor'] = inner_dict
 
-    # for i in result_dict.items():
-    #     print(i)
+        # 获取根据原始表得到的产出
+        cursor.execute(query_origin_production, (year + SPAN,))
+        results = cursor.fetchall()
+        inner_dict = {}
+        for row in results:
+            inner_dict[row[0].upper()] = row[1]
+        result_dict[str(year) + '-' + str(year + SPAN - 1)]['origin'] = inner_dict
+
+        # 整合两个表的去重产出
+        cursor.execute(query_concat_production, (year + SPAN,year + SPAN))
+        results = cursor.fetchall()
+        inner_dict = {}
+        for row in results:
+            inner_dict[row[0].upper()] = row[1]
+        result_dict[str(year) + '-' + str(year + SPAN - 1)]['concat'] = inner_dict
+
+    return result_dict
+
+
+def get_extra_control_variables(con):
+    cursor = con.cursor()
+    result_dict = {}
+    for year in range(START_YEAR, END_YEAR - SPAN + 2):
+        query_knowledge_amount = 'SELECT UPPER(energy_conservation.city), COUNT(DISTINCT patnum ) AS patent_num ' \
+                                 'FROM energy_conservation ' \
+                                 'WHERE CAST(SUBSTR( energy_conservation.grantdate, 1, 4 )AS INTEGER) BETWEEN ? AND ? ' \
+                                 'AND `city` IS NOT NULL AND `city` != \'\'' \
+                                 'GROUP BY energy_conservation.city ORDER BY patent_num DESC'
+
+        query_inventor_amount = 'SELECT UPPER(a.city), COUNT(DISTINCT(a.name)) AS name_num ' \
+                                'FROM (SELECT *, (first_name || last_name) AS name ' \
+                                'FROM (select b.*, CAST(SUBSTR(c.`grantdate`,1,4) AS INTEGER) AS `year` ' \
+                                'FROM energy_inventor AS b LEFT JOIN energy_conservation AS c ON b.patnum = c.patnum ' \
+                                'WHERE YEAR BETWEEN ? AND ?) )AS a ' \
+                                'WHERE `city` IS NOT NULL AND `city` != \'\'' \
+                                'GROUP BY a.city ' \
+                                'ORDER BY name_num DESC'
+
+        query_company_amount = 'SELECT UPPER(city), COUNT(DISTINCT(owner)) AS owner_num ' \
+                               'FROM energy_conservation ' \
+                               'WHERE CAST(substr(grantdate, 1, 4 )AS INTEGER) BETWEEN ? AND ? ' \
+                               'AND `city` IS NOT NULL AND `city` != \'\'' \
+                               'GROUP BY city ORDER BY owner_num DESC'
+
+        result_dict[str(year) + '-' + str(year + SPAN - 1)] = {}
+        # 获取知识存量
+        cursor.execute(query_knowledge_amount, (year, year + SPAN - 1))
+        results = cursor.fetchall()
+        inner_dict = {}
+        for row in results:
+            inner_dict[row[0].upper()] = row[1]
+        result_dict[str(year) + '-' + str(year + SPAN - 1)]['knowledge_amount'] = inner_dict
+
+        # 获取发明人数目
+        cursor.execute(query_inventor_amount, (year, year + SPAN - 1))
+        results = cursor.fetchall()
+        inner_dict = {}
+        for row in results:
+            inner_dict[row[0].upper()] = row[1]
+        result_dict[str(year) + '-' + str(year + SPAN - 1)]['inventor_amount'] = inner_dict
+
+        # 获取公司数目
+        cursor.execute(query_company_amount, (year, year + SPAN - 1))
+        results = cursor.fetchall()
+        inner_dict = {}
+        for row in results:
+            inner_dict[row[0].upper()] = row[1]
+        result_dict[str(year) + '-' + str(year + SPAN - 1)]['company_amount'] = inner_dict
+
     return result_dict
 
 
 def run():
     con = sqlite3.connect(r'C:\Users\Tom\Documents\energy.db')
-    cities = get_cities(con, -1)
+    cities = get_cities(con, 10)
     production = get_each_year_production(con)
-    for K in range(2, 10):
-        get_results(con, cities, production, K)
+    extra_control_variables = get_extra_control_variables(con)
+    for K in range(2, 3):
+        get_results(con, cities, extra_control_variables, production, K)
 
     con.close()
 

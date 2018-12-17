@@ -39,6 +39,17 @@ def get_each_range_network(con, start, end, span, city='', gen_all=False):
 
             all_patent_classes = generate_matrix_index(results)
             cur_all_network = get_cooccurrance_network(all_patent_classes, results, 'IPC')
+
+            # 计算知识网络的基础指标（中心度、集聚系数、结构洞）
+            print('正在计算知识网络基础指标，结构洞计算可能耗时较长')
+            dc = nx.degree_centrality(cur_all_network)
+            triangle = nx.triangles(cur_all_network)
+            sh = nx.constraint(cur_all_network)
+
+            nx.set_node_attributes(cur_all_network, dc, 'Normalized Degree Centrality')
+            nx.set_node_attributes(cur_all_network, triangle, 'Triangles')
+            nx.set_node_attributes(cur_all_network, sh, 'Structural Hole Constraint')
+
             all_networks.append((str(year) + '-' + str(year + span - 1), cur_all_network))
             # nx.write_gexf(cur_all_network, '../results/' + str(year) + '-' + str(year + span - 1) + '-all.gexf')
 
@@ -77,17 +88,20 @@ def cal_k_core(city_networks, all_networks, span, k=0):
     ratio_dict = {}
     avg_max_k_cc_dict = {}
     outside_neighbors_dict = {}
+    avg_dc = {}
+    avg_triangle = {}
+    avg_sh = {}
 
     # 这里的处理比较麻烦，因为城市网络和全局网络是分开生成的，所以要通过城市网络
     # 建立对全局网络节点的映射。城市边的权重无法挽回。
     for city_network, all_network in zip(city_networks, all_networks):
+        range_str = city_network[0]
 
         # 首先找到全局的K核子网，然后计算城市网络与全局网络K核子网的重叠部分占比
 
         city_net = city_network[1]
         all_net = all_network[1]
         knet = nx.k_core(all_net, k)
-
 
         # 重新建立联系
         city_labels = set(nx.get_node_attributes(city_net, 'IPC').values())
@@ -98,13 +112,34 @@ def cal_k_core(city_networks, all_networks, span, k=0):
                 city_nodes.add(key)
         city_net = all_net.subgraph(city_nodes)
 
+        # TODO:将城市局部知识网络的平均基础指标计算暂时放在这里，待拆分
+        dc = nx.get_node_attributes(all_net, 'Normalized Degree Centrality')
+        triangle = nx.get_node_attributes(all_net, 'Triangles')
+        sh = nx.get_node_attributes(all_net, 'Structural Hole Constraint')
+
+        dc_sum = 0
+        triangle_sum = 0
+        sh_sum = 0
+        for index in city_nodes:
+            dc_sum += dc[index]
+            triangle_sum += triangle[index]
+            sh_sum += sh[index]
+
+        if len(city_nodes) == 0:
+            avg_dc[range_str] = -1
+            avg_triangle[range_str] = -1
+            avg_sh[range_str] = -1
+        else:
+            avg_dc[range_str] = dc_sum / len(city_nodes)
+            avg_triangle[range_str] = triangle_sum / len(city_nodes)
+            avg_sh[range_str] = sh_sum / len(city_nodes)
+
         knet_nodes = set(knet.nodes)
 
         common = 0
         for node in knet_nodes:
             if node in city_nodes:
                 common += 1
-
 
         if len(knet.nodes) <= 0:
             ratio = 0
@@ -124,7 +159,7 @@ def cal_k_core(city_networks, all_networks, span, k=0):
             single_node_sum = 0
             for max_knet_node in max_knet_nodes:
                 try:
-                    single_node_sum += 1/(nx.shortest_path_length(city_and_knet, city_node, max_knet_node))
+                    single_node_sum += 1 / (nx.shortest_path_length(city_and_knet, city_node, max_knet_node))
                 except Exception as e:
                     single_node_sum += 0
             all_node_sum += single_node_sum / N
@@ -143,14 +178,14 @@ def cal_k_core(city_networks, all_networks, span, k=0):
                     outside_neighbors.add(neighbor)
         outside_neighbors_num = len(outside_neighbors)
 
-        range_str = city_network[0]
+
         # result.append((str(network[0]) + '-' + str(network[0] + span - 1), ratio, avg_max_k_cc, outside_neighbors_num))
         ratio_dict[range_str] = ratio
         avg_max_k_cc_dict[range_str] = avg_max_k_cc
         outside_neighbors_dict[range_str] = outside_neighbors_num
 
         # print(sum(list(max_k_cc.values()))/len(max_k_cc), len(knet.nodes), len(max_k_core.nodes))
-    return ratio_dict, avg_max_k_cc_dict, outside_neighbors_dict
+    return ratio_dict, avg_max_k_cc_dict, outside_neighbors_dict, avg_dc, avg_triangle, avg_sh
 
 
 def cal_entropy(networks, span, alpha=0.5, beta=0.5):
@@ -186,7 +221,7 @@ def cal_entropy(networks, span, alpha=0.5, beta=0.5):
         # 对结构重要性求和得到总的结构重要性，逐一相除得到各个节点的相对重要性
         total_importance = sum(importance_list)
 
-        #考虑结构熵为0的规则网络特殊情况
+        # 考虑结构熵为0的规则网络特殊情况
         if total_importance == 0:
             entropys[network[0]] = 0
             continue
@@ -199,6 +234,21 @@ def cal_entropy(networks, span, alpha=0.5, beta=0.5):
 
         entropys[network[0]] = entropy
     return entropys
+
+
+def cal_density(networks):
+    """
+    计算各个时间段知识网络的密度，以字典形式返回，键为年份区间
+
+    :param networks: 网络集合
+    :return: 密度字典
+    """
+    result_dict = {}
+    for network in networks:
+        net: nx.Graph = network[1]
+        density = nx.density(net)
+        result_dict[network[0]] = density
+    return result_dict
 
 
 def run():
@@ -215,7 +265,7 @@ def run():
     con.close()
 
     print('==============计算K核内容=================')
-    ratio, avg_max_k_cc, outside_neighbour = cal_k_core(city_networks,all_networks, SPAN, 2)
+    ratio, avg_max_k_cc, outside_neighbour = cal_k_core(city_networks, all_networks, SPAN, 2)
     print('-----K核占比------')
     print(ratio)
     print('-----最高核CC------')
