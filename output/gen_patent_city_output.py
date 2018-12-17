@@ -385,15 +385,16 @@ def get_each_year_production(con):
                                     'GROUP BY UPPER(`city`) ' \
                                     'ORDER BY `num` DESC'
 
-        query_origin_production = 'SELECT `city`, CAST(SUBSTR(grantdate,1,4) AS INTEGER) AS YEAR ' \
-                                  'FROM energy_conservation ' \
-                                  'WHERE YEAR=? AND `city` IS NOT NULL AND `city` != \'\' ' \
-                                  'GROUP BY city'
+        query_origin_production = 'SELECT `city`, COUNT(*) AS num ' \
+                                  'FROM energy_conservation WHERE CAST(SUBSTR(grantdate,1,4) AS INTEGER)=? ' \
+                                  'AND `city` IS NOT NULL AND `city` != \'\' ' \
+                                  'GROUP BY city ' \
+                                  'ORDER BY num DESC'
 
         query_concat_production = 'SELECT city, COUNT(DISTINCT patnum) AS num ' \
                                   'FROM ( SELECT patnum, city, CAST(SUBSTR(grantdate,1,4) AS INTEGER) AS year ' \
                                   'FROM energy_conservation WHERE year=? ' \
-                                  'UNION' \
+                                  'UNION ' \
                                   'SELECT `patnum`, UPPER(`city`), `year` ' \
                                   'FROM (SELECT a.*, CAST(SUBSTR(b.`grantdate`,1,4) AS INTEGER) as `year` ' \
                                   'FROM `energy_inventor` as a ' \
@@ -491,7 +492,7 @@ def run():
     cities = get_cities(con, 10)
     production = get_each_year_production(con)
     extra_control_variables = get_extra_control_variables(con)
-    for K in range(2, 3):
+    for K in range(2, 11):
         get_results(con, cities, extra_control_variables, production, K)
 
     con.close()

@@ -73,17 +73,17 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
             print('正在计算全局网络中各城市的平均距离，可能耗时较长')
             avg_distance_dict = {}
             for index in latitude.keys():
-                # city1 = (latitude[index], longitude[index])
-                # single_city_distance_sum = 0
-                # for index2 in latitude.keys():
-                #     if index == index2:
-                #         continue
-                #     else:
-                #         city2 = (latitude[index2], longitude[index2])
-                #         single_city_distance_sum += great_circle(city1, city2).kilometers
-                # avg_distance_dict[index] = single_city_distance_sum/(len(latitude)-1)
+                city1 = (latitude[index], longitude[index])
+                single_city_distance_sum = 0
+                for index2 in latitude.keys():
+                    if index == index2:
+                        continue
+                    else:
+                        city2 = (latitude[index2], longitude[index2])
+                        single_city_distance_sum += great_circle(city1, city2).kilometers
+                avg_distance_dict[index] = single_city_distance_sum/(len(latitude)-1)
                 # TODO:为了节省调试时间此处不计算平均距离
-                avg_distance_dict[index] = 0
+                # avg_distance_dict[index] = 0
             print(avg_distance_dict)
             nx.set_node_attributes(cur_all_network, avg_distance_dict, 'Average Distance')
 
