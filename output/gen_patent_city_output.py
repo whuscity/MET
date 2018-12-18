@@ -165,7 +165,7 @@ def get_results(con, cities, extra_control_variables, production, K):
                 filename = '../results/csv/k_{}/{}-{}.csv'.format(K, str(year), str(year + SPAN - 1))
                 os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-                with open(filename, mode='a', newline='') as file:
+                with open(filename, mode='a', newline='', encoding='utf-8') as file:
                     writer = csv.writer(file)
                     if FIRST_TIME:
                         writer.writerow(
@@ -264,7 +264,7 @@ def get_results(con, cities, extra_control_variables, production, K):
             filename = '../results/csv/k_{}/{}-{}.csv'.format(K, str(year), str(year + SPAN - 1))
             os.makedirs(os.path.dirname(filename), exist_ok=True)
 
-            with open(filename, mode='a', newline='') as file:
+            with open(filename, mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if FIRST_TIME:
                     writer.writerow(
@@ -489,7 +489,7 @@ def get_extra_control_variables(con):
 
 def run():
     con = sqlite3.connect(r'C:\Users\Tom\Documents\energy.db')
-    cities = get_cities(con, 10)
+    cities = get_cities(con, -1)
     production = get_each_year_production(con)
     extra_control_variables = get_extra_control_variables(con)
     for K in range(2, 11):

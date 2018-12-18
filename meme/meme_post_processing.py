@@ -2,7 +2,7 @@ import pandas as pd
 from math import isclose
 import os
 
-filenames = ['health_cs_tka']
+filenames = ['health_medicine_tka']
 n = 20
 
 for filename in filenames:

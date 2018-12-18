@@ -192,7 +192,7 @@ def cal_meme_score(con, candidates, output_path, delta=3):
 
 
 if __name__ == '__main__':
-    conf = 'health_cs'
+    conf = 'health_statistics'
     con = get_db_connection(conf)
     print('正在获取候选词列表')
     candidates = get_candidates(con)
