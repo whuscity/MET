@@ -1,5 +1,6 @@
 from cooccurrence import co_patent_city
 from cooccurrence import co_patent_class
+from geoUtil.forward_geocoding import get_geocode
 import sqlite3
 import networkx as nx
 import csv
@@ -98,13 +99,18 @@ def get_results(con, cities, extra_control_variables, production, K):
                 tmp[v.upper()] = k
             city_index = tmp
 
+            # TODO: 把经纬度单独拿出来，防止城市不存在于合作网络导致999
+            geocode = get_geocode([city.upper()])
+            latitude[each_year_net[0]] = geocode[0][city.upper()]
+            longitude[each_year_net[0]] = geocode[1][city.upper()]
+
             # try是防止城市不在全局网络中的出错
             try:
                 # 根据节点ID获得属性
                 attr = each_year_net[1].nodes[city_index[city.upper()]]
                 page_rank[each_year_net[0]] = attr['Page Rank']
-                latitude[each_year_net[0]] = attr['Latitude']
-                longitude[each_year_net[0]] = attr['Longitude']
+                # latitude[each_year_net[0]] = attr['Latitude']
+                # longitude[each_year_net[0]] = attr['Longitude']
 
                 avg_distance[each_year_net[0]] = attr['Average Distance']
                 dc[each_year_net[0]] = attr['Normalized Degree Centrality']
@@ -112,8 +118,8 @@ def get_results(con, cities, extra_control_variables, production, K):
                 sh[each_year_net[0]] = attr['Structural Hole Constraint']
             except KeyError:
                 page_rank[each_year_net[0]] = 0
-                latitude[each_year_net[0]] = 999
-                longitude[each_year_net[0]] = 999
+                # latitude[each_year_net[0]] = 999
+                # longitude[each_year_net[0]] = 999
 
                 avg_distance[each_year_net[0]] = -1
                 dc[each_year_net[0]] = -1

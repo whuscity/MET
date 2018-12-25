@@ -32,7 +32,7 @@ def get_each_range_network(con, start, end, span, city='', gen_all=False):
 
         if gen_all:
             # print('正在生成{}到{}年的全局IPC共现网络'.format(year, year + span - 1))
-            all_query_sql = 'SELECT `ipc1`, `ipc2`, `year` FROM energy_ipc_cooccurrence WHERE `year` BETWEEN ? AND ?'
+            all_query_sql = 'SELECT `ipc1`, `ipc2`, `year` FROM( SELECT DISTINCT `patnum`, `ipc1`, `ipc2`, `year` FROM energy_ipc_cooccurrence WHERE `year` BETWEEN ? AND ?)'
 
             cursor.execute(all_query_sql, (year, year + span - 1))
             results = cursor.fetchall()
@@ -43,7 +43,8 @@ def get_each_range_network(con, start, end, span, city='', gen_all=False):
             # 计算知识网络的基础指标（中心度、集聚系数、结构洞）
             print('正在计算知识网络基础指标，结构洞计算可能耗时较长')
             dc = nx.degree_centrality(cur_all_network)
-            triangle = nx.triangles(cur_all_network)
+            # triangle = nx.triangles(cur_all_network)
+            triangle = nx.clustering(cur_all_network)
             sh = nx.constraint(cur_all_network)
 
             nx.set_node_attributes(cur_all_network, dc, 'Normalized Degree Centrality')
@@ -126,9 +127,9 @@ def cal_k_core(city_networks, all_networks, span, k=0):
             sh_sum += sh[index]
 
         if len(city_nodes) == 0:
-            avg_dc[range_str] = -1
-            avg_triangle[range_str] = -1
-            avg_sh[range_str] = -1
+            avg_dc[range_str] = 0
+            avg_triangle[range_str] = 0
+            avg_sh[range_str] = 1
         else:
             avg_dc[range_str] = dc_sum / len(city_nodes)
             avg_triangle[range_str] = triangle_sum / len(city_nodes)

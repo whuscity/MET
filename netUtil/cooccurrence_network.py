@@ -42,7 +42,7 @@ def get_cooccurrance_matrix(classes, data, output_path):
     return df
 
 
-def get_cooccurrance_network(classes, data, label_name):
+def get_cooccurrance_network(classes, data, label_name, directed=False):
     """
     计算并输出共现网络到GEXF文件
 
@@ -55,17 +55,21 @@ def get_cooccurrance_network(classes, data, label_name):
     reverse_classes_dict = {}
     for i in range(len(classes)):
         classes_dict[i + 1] = classes[i].upper()
-        reverse_classes_dict[classes[i]] = i + 1
+        reverse_classes_dict[classes[i].upper()] = i + 1
 
-    graph = nx.Graph()
+    if not directed:
+        graph = nx.Graph()
+    else:
+        graph = nx.DiGraph()
     graph.add_nodes_from(list(range(1, len(classes) + 1)))
     nx.set_node_attributes(graph, classes_dict, label_name)
 
     for row in data:
-        if graph.has_edge(reverse_classes_dict[row[0].upper()], reverse_classes_dict[row[1].upper()]):
-            graph.edges[reverse_classes_dict[row[0].upper()], reverse_classes_dict[row[1].upper()]]['weight'] += 1
+        if graph.has_edge(reverse_classes_dict[str(row[0]).upper()], reverse_classes_dict[str(row[1]).upper()]):
+            graph.edges[reverse_classes_dict[str(row[0]).upper()], reverse_classes_dict[str(row[1]).upper()]]['weight'] += 1
         else:
-            graph.add_edge(reverse_classes_dict[row[0].upper()], reverse_classes_dict[row[1].upper()], weight=1)
+            graph.add_edge(reverse_classes_dict[str(row[0]).upper()], reverse_classes_dict[str(row[1]).upper()], weight=1)
+
 
     # dc = nx.degree_centrality(graph)
     # bc = nx.betweenness_centrality(graph)
@@ -77,4 +81,26 @@ def get_cooccurrance_network(classes, data, label_name):
     # nx.set_node_attributes(graph, cc, 'Closeness Centrality')
     # nx.set_node_attributes(graph, clustering, 'Clustering Coefficient')
 
+    return graph
+
+def get_cooccurrance_network_v2(data, directed=False):
+    """
+    计算并输出共现网络到GEXF文件
+
+    :param classes: 前一步生成的类别名列表
+    :param data: 共现数据
+    :param output_path: 要输出共词网络图的路径
+    :return: graph: 共现网络
+    """
+
+    if not directed:
+        graph = nx.Graph()
+    else:
+        graph = nx.DiGraph()
+
+    for row in data:
+        if graph.has_edge(str(row[0]), str(row[1])):
+            graph.edges[str(row[0]), str(row[1])]['weight'] += 1
+        else:
+            graph.add_edge(str(row[0]), str(row[1]), weight=1)
     return graph

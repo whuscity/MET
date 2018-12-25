@@ -90,7 +90,8 @@ def get_each_range_network(con, start, end, span, city, gen_all=False):
             #为城市添加点度中心度、集聚系数、结构洞计算
             print('在正在计算合作网络基础指标，结构洞计算可能耗时较长')
             dc = nx.degree_centrality(cur_all_network)
-            triangle = nx.triangles(cur_all_network)
+            # triangle = nx.triangles(cur_all_network)
+            triangle = nx.clustering(cur_all_network)
             sh = nx.constraint(cur_all_network)
 
             nx.set_node_attributes(cur_all_network, dc, 'Normalized Degree Centrality')
@@ -155,7 +156,7 @@ if __name__ == '__main__':
     SPAN = 5
 
     con = sqlite3.connect(r'C:\Users\Tom\Documents\energy.db')
-    city_networks = get_each_range_network(con, START_YEAR, END_YEAR, SPAN, 'TOKYO', gen_all=False)
-    for i in cal_density(city_networks).items():
-        print(i)
+    city_networks, all_network = get_each_range_network(con, START_YEAR, END_YEAR, SPAN, 'TOKYO', gen_all=True)
+    # for i in cal_density(city_networks).items():
+    #     print(i)
     con.close()

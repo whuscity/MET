@@ -8,7 +8,7 @@ def get_geocode(city_names):
     latitude = {}
     longitude = {}
     not_in = {}
-    with open('../conf/city_geocode.csv', encoding='utf-8') as file:
+    with open('../conf/city_with_country_geocode.csv', encoding='utf-8') as file:
         reader = csv.reader(file)
         for row in reader:
             city_geocode[row[0]] = (float(row[1]), float(row[2]))
@@ -33,14 +33,14 @@ def get_geocode(city_names):
             except Exception as e:
                 print('中途发生错误（可能是被发现滥用），正在保存现有结果', e)
 
-                with open('../conf/city_geocode.csv', encoding='utf-8', mode='a', newline='') as file:
+                with open('../conf/city_with_country_geocode.csv', encoding='utf-8', mode='a', newline='') as file:
                     writer = csv.writer(file, quotechar='"')
                     for k, v in not_in.items():
                         writer.writerow([k, v[0], v[1]])
                 not_in.clear()
 
     if len(not_in) > 0:
-        with open('../conf/city_geocode.csv', encoding='utf-8', mode='a', newline='') as file:
+        with open('../conf/city_with_country_geocode.csv', encoding='utf-8', mode='a', newline='') as file:
             writer = csv.writer(file, quotechar='"')
             for k, v in not_in.items():
                 writer.writerow([k, v[0], v[1]])
@@ -50,11 +50,12 @@ def get_geocode(city_names):
 
 if __name__ == '__main__':
     cities = []
-    with open('../conf/cities.txt', encoding='utf-8') as file:
+    with open('../conf/city_with_country.txt', encoding='utf-8') as file:
         reader = csv.reader(file)
         for city in reader:
             cities.append(city[0])
-    print(len(cities))
-    print(cities[0])
-
+    # print(len(cities))
+    # print(cities[0])
+    #
     get_geocode(cities)
+    # print(get_geocode(['tokyo.jp']))

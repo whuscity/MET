@@ -45,10 +45,10 @@ SET FOREIGN_KEY_CHECKS = 1;
 DROP TABLE IF EXISTS `cndblp_title_keyword_ngram`;
 CREATE TABLE `cndblp_title_keyword_ngram`  (
   `paper_id` int(11) NOT NULL,
-  `ngram` int(11) NOT NULL,
+  `nid` int(11) NOT NULL,
   INDEX `paper_id`(`paper_id`) USING BTREE,
-  INDEX `ngram`(`ngram`) USING BTREE,
-  INDEX `p_n_com`(`paper_id`, `ngram`) USING BTREE
+  INDEX `ngram`(`nid`) USING BTREE,
+  INDEX `p_n_com`(`paper_id`, `nid`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;
@@ -59,10 +59,10 @@ SET FOREIGN_KEY_CHECKS = 1;
 DROP TABLE IF EXISTS `cndblp_abs_ngram`;
 CREATE TABLE `cndblp_abs_ngram`  (
   `paper_id` int(11) NOT NULL,
-  `ngram` int(11) NULL DEFAULT NULL,
+  `nid` int(11) NULL DEFAULT NULL,
   INDEX `paper_id`(`paper_id`) USING BTREE,
-  INDEX `ngram`(`ngram`) USING BTREE,
-  INDEX `p_n_com`(`paper_id`, `ngram`) USING BTREE
+  INDEX `ngram`(`nid`) USING BTREE,
+  INDEX `p_n_com`(`paper_id`, `nid`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;
@@ -70,16 +70,16 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ----------------------------
 -- Table structure for cndblp_keyword_ngram
 -- ----------------------------
-DROP TABLE IF EXISTS `cndblp_keyword_ngram`;
-CREATE TABLE `cndblp_keyword_ngram`  (
-  `paper_id` int(11) NOT NULL,
-  `ngram` int(11) NULL DEFAULT NULL,
-  INDEX `paper_id`(`paper_id`) USING BTREE,
-  INDEX `ngram`(`ngram`) USING BTREE,
-  INDEX `p_n_com`(`paper_id`, `ngram`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
-
-SET FOREIGN_KEY_CHECKS = 1;
+-- DROP TABLE IF EXISTS `cndblp_keyword_ngram`;
+-- CREATE TABLE `cndblp_keyword_ngram`  (
+--   `paper_id` int(11) NOT NULL,
+--   `nid` int(11) NULL DEFAULT NULL,
+--   INDEX `paper_id`(`paper_id`) USING BTREE,
+--   INDEX `ngram`(`nid`) USING BTREE,
+--   INDEX `p_n_com`(`paper_id`, `nid`) USING BTREE
+-- ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci ROW_FORMAT = Dynamic;
+--
+-- SET FOREIGN_KEY_CHECKS = 1;
 
 -- ----------------------------
 -- Table structure for cndblp_inner_reference
