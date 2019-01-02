@@ -4,7 +4,7 @@ from numpy import log
 from netUtil.cooccurrence_network import *
 
 
-def get_each_range_network(con, start, end, span, city='', gen_all=False):
+def get_each_range_network(con, start, end, span, city, gen_all=False):
     """
     生成各时间窗口的IPC共现网络
 
@@ -39,6 +39,7 @@ def get_each_range_network(con, start, end, span, city='', gen_all=False):
 
             all_patent_classes = generate_matrix_index(results)
             cur_all_network = get_cooccurrance_network(all_patent_classes, results, 'IPC')
+            assert len(cur_all_network.nodes) > 0
 
             # 计算知识网络的基础指标（中心度、集聚系数、结构洞）
             print('正在计算知识网络基础指标，结构洞计算可能耗时较长')

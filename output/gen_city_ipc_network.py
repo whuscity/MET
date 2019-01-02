@@ -15,7 +15,7 @@ def gen_city_ipc_network(cursor, start, end):
     :param end: 结束年份
     :return: 该时间段的二分网络对象
     """
-    query_sql = 'SELECT ipc, city||","||country AS city FROM "energy_ipc_city" WHERE city IS NOT NULL AND year BETWEEN ? AND ?'
+    query_sql = 'SELECT ipc, city||","||country AS city FROM "energy_ipc_city_full" WHERE city IS NOT NULL AND year BETWEEN ? AND ?'
 
     # 通过数据库连接查询所需的二分网络边结果
     cursor.execute(query_sql, (start, end))
@@ -27,6 +27,16 @@ def gen_city_ipc_network(cursor, start, end):
 
     # 为二分网络的不同类型节点做上标记（用0、1区分）
     network = add_node_type(network)
+
+    # 添加网络节点的基本属性
+    # network = add_degree_centrality(network)
+    # network = add_betweenness_centrality(network)
+    # network = add_clustering_coefficient(network)
+    # network = add_pagerank(network)
+    # network = add_structural_holes_constraint(network)
+
+    # 知识复杂度为二分网络专属
+    network = add_knowledge_complexity(network)
 
     # 创建输出路径
     nodes_filename = '../results/energy/figure/{}-{}/{}-{}-bipartite_nodes.csv'.format(start, end, start, end)
@@ -52,7 +62,7 @@ def run(con, start, end, span):
 if __name__ == '__main__':
     START_YEAR = 2000
     END_YEAR = 2017
-    SPAN = 5
+    SPAN = 18
 
     con = sqlite3.connect(r'C:\Users\Tom\Documents\energy.db')
     run(con, START_YEAR, END_YEAR, SPAN)

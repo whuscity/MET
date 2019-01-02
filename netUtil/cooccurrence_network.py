@@ -18,15 +18,15 @@ def generate_matrix_index(data):
     return classes
 
 
-def get_cooccurrance_matrix(classes, data, output_path):
+def get_cooccurrance_matrix(data, output_path=None):
     """
     计算并输出共现矩阵到CSV文件
 
-    :param classes: 前一步生成的类别名列表
     :param data: 共现数据
     :param output_path: 要输出共现矩阵的路径
     :return: df: 共现矩阵
     """
+    classes = generate_matrix_index(data)
     co_matrix = [[0 for col in range(len(classes))] for row in range(len(classes))]
     classes_dict = {}
     for i in range(len(classes)):
@@ -37,7 +37,9 @@ def get_cooccurrance_matrix(classes, data, output_path):
         co_matrix[classes_dict[row[1].upper()]][classes_dict[row[0].upper()]] += int(row[2])
 
     df = DataFrame(co_matrix, columns=classes, index=classes)
-    df.to_csv(output_path)
+
+    if output_path is not None:
+        df.to_csv(output_path)
 
     return df
 

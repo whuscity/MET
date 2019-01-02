@@ -43,3 +43,8 @@ def csv_output(network, nodes_output_path, edges_output_path, info_output_path):
 
         for key, value in output_properties.items():
             writer.writerow([key, value])
+
+def gexf_output(network, output_path):
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    nx.write_gexf(network, output_path)

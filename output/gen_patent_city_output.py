@@ -362,10 +362,10 @@ def get_results(con, cities, extra_control_variables, production, K):
 
 
 def get_cities(con, limit):
-    query_sql = 'SELECT city FROM energy_inventor WHERE city IS NOT NULL AND city != \'\' GROUP BY city ORDER BY COUNT(*) DESC LIMIT {}'.format(
+    query_sql = 'SELECT UPPER(TRIM(city))||","||country FROM energy_inventor WHERE city IS NOT NULL AND city != "" GROUP BY city ORDER BY COUNT(*) DESC LIMIT {}'.format(
         limit)
     if limit <= 0:
-        query_sql = 'SELECT city FROM energy_inventor WHERE city IS NOT NULL AND city != \'\' GROUP BY city ORDER BY COUNT(*) DESC'
+        query_sql = 'SELECT UPPER(TRIM(city))||","||country FROM energy_inventor WHERE city IS NOT NULL AND city != "" GROUP BY city ORDER BY COUNT(*) DESC'
 
     cities = []
     cursor = con.cursor()

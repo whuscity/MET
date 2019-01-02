@@ -1,6 +1,13 @@
 import networkx as nx
 from geoUtil.forward_geocoding import get_geocode
 from networkx.algorithms import bipartite
+from netUtil.cooccurrence_network import *
+from networkx.algorithms.bipartite import biadjacency_matrix
+from networkx.algorithms import diameter, average_shortest_path_length
+import numpy as np
+import scipy.stats as ss
+import re
+from math import isclose
 
 
 # 点度中心度
@@ -9,11 +16,13 @@ def add_degree_centrality(network: nx.Graph):
     nx.set_node_attributes(network, dc, 'Degree_Centrality')
     return network
 
+
 # 中介中心度
 def add_betweenness_centrality(network: nx.Graph):
     bc = nx.betweenness_centrality(network)
     nx.set_node_attributes(network, bc, 'Betweenness_Centrality')
     return network
+
 
 # 集聚系数
 def add_clustering_coefficient(network: nx.Graph):
@@ -21,11 +30,13 @@ def add_clustering_coefficient(network: nx.Graph):
     nx.set_node_attributes(network, cc, 'Clustering_Coefficient')
     return network
 
+
 # PageRank
 def add_pagerank(network: nx.Graph):
     pr = nx.pagerank(network)
     nx.set_node_attributes(network, pr, 'Page_Rank')
     return network
+
 
 # 结构洞约束
 def add_structural_holes_constraint(network: nx.Graph):
@@ -33,13 +44,23 @@ def add_structural_holes_constraint(network: nx.Graph):
     nx.set_node_attributes(network, sh, 'Structural_Holes_Constraint')
     return network
 
+
 # 经纬度
 def add_city_geocode(network: nx.Graph):
     cities = network.nodes
     latitude, longitude = get_geocode(cities)
+
+    for city,lat in latitude.items():
+        if isclose(lat, 999.0) or type(lat) != type(1.0):
+            try:
+                network.remove_node(city)
+            except Exception as e:
+                print(e)
+
     nx.set_node_attributes(network, latitude, 'Latitude')
     nx.set_node_attributes(network, longitude, 'Longitude')
     return network
+
 
 # 国家
 def add_country(network: nx.Graph):
@@ -50,22 +71,28 @@ def add_country(network: nx.Graph):
     nx.set_node_attributes(network, country_dict, 'Country')
     return network
 
+
 # 全局参数
 def general_properties(network: nx.Graph):
     properties = {
         'node_num': len(network.nodes),
         'edge_num': len(network.edges),
         'density': nx.density(network),
-        'global_clustering_coefficient': nx.average_clustering(network)
+        'global_clustering_coefficient': nx.average_clustering(network),
+        'diameter': diameter(network),
+        'avg_shortest_path_length': average_shortest_path_length(network),
+        'avg_degree': sum(dict(network.degree).values()) / len(network.nodes)
     }
 
     return properties
+
 
 # 直接邻居数（在这里就是没有归一化的度数）
 def add_neighbors(network: nx.Graph):
     nb = dict(network.degree)
     nx.set_node_attributes(network, nb, 'Neighbors(Unnormalized_Degree)')
     return network
+
 
 # 区分二分网络的节点类型
 def add_node_type(network: nx.Graph):
@@ -74,3 +101,90 @@ def add_node_type(network: nx.Graph):
     node_type = bipartite.color(network)
     nx.set_node_attributes(network, node_type, 'Node_Type')
     return network
+
+
+# 知识复杂度
+def add_knowledge_complexity(network: nx.Graph, max_iteration=25):
+    print('正在计算知识复杂度……')
+    assert nx.is_bipartite(network)
+
+    # 从知识-城市二分网络中取出知识和城市两类节点，并将其转换为列表
+    set1, set2 = bipartite.sets(network)
+    set1, set2 = list(set1), list(set2)
+
+    # 通过判断列表中的第一个元素是否为IPC格式，进行知识和城市列表的确定
+    pattern = re.compile(r'\w\d\d\w')
+    if pattern.match(str(set1[0])) is not None:
+        ipc_list = set1
+        city_list = set2
+    else:
+        ipc_list = set2
+        city_list = set1
+
+    # 清空无用变量并对列表进行排序（以便后面重新绑定属性）
+    set1 = None
+    set2 = None
+    ipc_list.sort()
+    city_list.sort()
+
+    # 使用networkx函数生成二分网络的邻接矩阵，其中行为城市，列为知识，加入权重
+    matrix = biadjacency_matrix(network, city_list, ipc_list, weight='weight').toarray()
+
+    # total为知识的加权总量
+    total = matrix.sum()
+
+    # kc0为每一行的和（按列求和），在这里表示每个城市产生知识的数量（城市的生产的diversity，多样性）
+    kc0 = matrix.sum(1)
+    # kp0为每一列的和（按行求和），在这里表示每个知识的产出城市数量（知识的ubiquity，普遍性）
+    kp0 = matrix.sum(0)
+    # product_share为每类知识在全球知识市场中所占的比值
+    product_share = kp0 / total
+
+    # matrix2是在原有邻接矩阵的基础上，根据RCA相对技术优势值是否大于等于1，转化成的01矩阵
+    matrix2 = ((matrix / kc0.reshape(-1, 1)) / product_share.reshape(1, -1)) >= 1
+    matrix2 = matrix2 * 1
+
+    # 将最初值放入迭代结果列表
+    kc = [kc0]
+    kp = [kp0]
+    max_i = 0
+
+    for i in range(1, max_iteration):
+        # 论文公式的向量化实现（使用矩阵相乘不需要循环）
+        kci = np.matmul(matrix2, np.transpose(kp[i - 1])) / kc[0]
+        kpi = np.matmul(np.transpose(kc[i - 1]), matrix2) / kp[0]
+
+        # 检测排名是否与前2次发生变化，如果变化幅度小于某个设定值则跳出
+        kci_rank = ss.rankdata(kci)
+        kpi_rank = ss.rankdata(kpi)
+
+        if i > 1:
+            pre_kci_rank = ss.rankdata(kc[i - 2])
+            if sum(kci_rank == pre_kci_rank) / len(kci_rank) >= 0.8:
+                print('排名未发生太大变化，停止迭代，i=', i - 1)
+                max_i = i - 1
+                break
+
+            pre_kpi_rank = ss.rankdata(kp[i - 2])
+            if sum(kpi_rank == pre_kpi_rank) / len(kpi_rank) >= 0.8:
+                print('排名未发生太大变化，停止迭代，i=', i - 1)
+                max_i = i - 1
+                break
+
+        kc.append(kci)
+        kp.append(kpi)
+
+    for i in range(len(kc)):
+        knowledge_complexity = {}
+        kci_list = list(kc[i])
+        kpi_list = list(kp[i])
+        for city, kci in zip(city_list, kci_list):
+            knowledge_complexity[city] = kci
+        for ipc, kpi in zip(ipc_list, kpi_list):
+            knowledge_complexity[ipc] = kpi
+
+        nx.set_node_attributes(network, knowledge_complexity, 'Knowledge_Complexity_' + str(i))
+        knowledge_complexity.clear()
+
+    return network
+
