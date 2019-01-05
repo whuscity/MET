@@ -8,6 +8,8 @@ import numpy as np
 import scipy.stats as ss
 import re
 from math import isclose
+from networkx.algorithms import community
+from geopy.distance import great_circle
 
 
 # 点度中心度
@@ -23,10 +25,20 @@ def add_betweenness_centrality(network: nx.Graph):
     nx.set_node_attributes(network, bc, 'Betweenness_Centrality')
     return network
 
+def add_closeness_centrality(network: nx.Graph):
+    cc = nx.closeness_centrality(network)
+    nx.set_node_attributes(network, cc, 'Closeness_Centrality')
+    return network
+
 
 # 集聚系数
 def add_clustering_coefficient(network: nx.Graph):
-    cc = nx.clustering(network)
+    if type(network) == type(nx.DiGraph()):
+        print('正在将有向图转为无向图以计算集聚系数')
+        tmp_net = network.to_undirected()
+        cc = nx.clustering(tmp_net)
+    else:
+        cc = nx.clustering(network)
     nx.set_node_attributes(network, cc, 'Clustering_Coefficient')
     return network
 
@@ -78,8 +90,9 @@ def general_properties(network: nx.Graph):
         'node_num': len(network.nodes),
         'edge_num': len(network.edges),
         'density': nx.density(network),
-        'global_clustering_coefficient': nx.average_clustering(network),
-        'diameter': diameter(network),
+        'global_clustering_coefficient': nx.average_clustering(network)
+                            if type(network) == type(nx.Graph) else nx.average_clustering(network.to_undirected()) ,
+        # 'diameter': diameter(network),
         'avg_shortest_path_length': average_shortest_path_length(network),
         'avg_degree': sum(dict(network.degree).values()) / len(network.nodes)
     }
@@ -187,4 +200,66 @@ def add_knowledge_complexity(network: nx.Graph, max_iteration=25):
         knowledge_complexity.clear()
 
     return network
+
+# 社群发现（Girvan Newman算法）
+def add_community_discovery(network: nx.Graph):
+    q_value = []
+    com = community.girvan_newman(network)
+    for i in range(20):
+        print('正在计算K={}的社群'.format(i+2))
+        cur_com = next(com)
+        q_value.append((len(cur_com), community.modularity(network, cur_com), cur_com))
+
+    max_q = max(q_value, key=lambda x:x[1])
+    print('模块度最大的社群数为：{}，模块度为：{}'.format(max_q[0], max_q[1]))
+
+    group_dict = {}
+    group_id = 1
+    for group in max_q[2]:
+        for node in group:
+            group_dict[node] = group_id
+        group_id += 1
+
+    nx.set_node_attributes(network, group_dict, 'Community')
+
+    return network, q_value
+
+
+# 流入/流出（出度和入度）
+def add_in_and_out_degree(network: nx.DiGraph):
+    assert type(network) == type(nx.DiGraph())
+
+    in_degree = dict(network.in_degree(weight='weight'))
+    out_degree = dict(network.out_degree(weight='weight'))
+
+    nx.set_node_attributes(network, in_degree, 'In_Degree')
+    nx.set_node_attributes(network, out_degree, 'Out_Degree')
+
+    return network
+
+# 计算地理上的到其他节点的平均距离（不需要有网络连通关系）
+def add_average_geo_distance(network: nx.Graph):
+    avg_geo_distance = {}
+    for city1 in network.nodes(data=True):
+        city1_name = city1[0]
+        city1_geocode = city1[1]['Latitude'], city1[1]['Longitude']
+        single_city_distance_sum = 0
+        for city2 in network.nodes(data=True):
+            if city1 == city2:
+                continue
+            else:
+                city2_geocode = city2[1]['Latitude'], city2[1]['Longitude']
+                single_city_distance_sum += great_circle(city1_geocode, city2_geocode).kilometers
+        avg_geo_distance[city1_name] = single_city_distance_sum / (len(network.nodes) - 1)
+
+    nx.set_node_attributes(network, avg_geo_distance, 'Average_Geo_Distance')
+    return network
+
+
+
+
+
+
+
+
 

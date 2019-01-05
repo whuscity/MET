@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 
-def gen_render_html(nodes_path, edges_path, output_path=r'../results/energy/figure/2000-2017/city_coop.html'):
+def gen_render_html(nodes_path, edges_path, output_path=r'../results/energy/figure/2015-2017-finished/city_coop.html'):
     # 读取节点和边
     nodes = pd.read_csv(nodes_path, delimiter=';')
     edges = pd.read_csv(edges_path, delimiter=';')
@@ -19,7 +19,7 @@ def gen_render_html(nodes_path, edges_path, output_path=r'../results/energy/figu
     # 渲染
     geolines = GeoLines('城市合作网络', **style.init_style)
     geolines.add("", edge_data, maptype='world', geo_cities_coords=geocode, is_geo_effect_show=False, is_roam=False,
-                 symbol_size=0, geo_normal_color='#dcdcdc', **style_geo)
+                 symbol_size=0, geo_normal_color='#dcdcdc', border_color='black', **style_geo)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     geolines.render(output_path)
@@ -27,11 +27,12 @@ def gen_render_html(nodes_path, edges_path, output_path=r'../results/energy/figu
     return
 
 if __name__ == '__main__':
-    NODES_PATH = r'C:\Users\Tom\PycharmProjects\MET\results\energy\figure\2000-2017\2000-2017-city_nodes.csv'
-    EDGES_PATH = r'C:\Users\Tom\PycharmProjects\MET\results\energy\figure\2000-2017\2000-2017-city_edges.csv'
+    NODES_PATH = r'C:\Users\Tom\PycharmProjects\MET\results\energy\figure\2015-2017-finished\2015-2017-city_nodes.csv'
+    EDGES_PATH = r'C:\Users\Tom\PycharmProjects\MET\results\energy\figure\2015-2017-finished\2015-2017-city_edges.csv'
 
     print('开始渲染地理流向图')
     gen_render_html(NODES_PATH, EDGES_PATH)
-    print('生成完成了')
+    print('生成完成')
+
 
 

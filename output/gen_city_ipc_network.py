@@ -36,7 +36,7 @@ def gen_city_ipc_network(cursor, start, end):
     # network = add_structural_holes_constraint(network)
 
     # 知识复杂度为二分网络专属
-    network = add_knowledge_complexity(network)
+    # network = add_knowledge_complexity(network)
 
     # 创建输出路径
     nodes_filename = '../results/energy/figure/{}-{}/{}-{}-bipartite_nodes.csv'.format(start, end, start, end)

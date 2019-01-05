@@ -2,7 +2,8 @@ from netUtil.cooccurrence_network import get_cooccurrance_network_v2
 from netUtil.add_network_properties import *
 from netUtil.network_output import csv_output
 import sqlite3
-
+import networkx as nx
+import matplotlib.pyplot as plt
 
 def gen_co_ipc_network(cursor, start, end):
     """
@@ -25,10 +26,10 @@ def gen_co_ipc_network(cursor, start, end):
     assert network is not None
 
     # 添加网络节点的基本属性
-    network = add_degree_centrality(network)
-    network = add_betweenness_centrality(network)
-    network = add_clustering_coefficient(network)
-    network = add_pagerank(network)
+    # network = add_degree_centrality(network)
+    # network = add_betweenness_centrality(network)
+    # network = add_clustering_coefficient(network)
+    # network = add_pagerank(network)
     # network = add_structural_holes_constraint(network)
 
     # 创建输出路径
@@ -38,7 +39,15 @@ def gen_co_ipc_network(cursor, start, end):
         .format(start, end, start, end)
 
     # 用CSV格式输出网络
-    csv_output(network, nodes_filename, edges_filename, info_filename)
+    # csv_output(network, nodes_filename, edges_filename, info_filename)
+
+    # print('计算模块度')
+    # network, q_value = add_community_discovery(network)
+    # x = [q[0] for q in q_value]
+    # y = [q[1] for q in q_value]
+    #
+    # plt.plot(x, y, 'r')
+    # plt.show()
 
     return network
 

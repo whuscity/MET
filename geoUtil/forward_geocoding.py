@@ -3,7 +3,7 @@ import csv
 
 
 def get_geocode(city_names):
-    geolocator = Nominatim(user_agent="ipc-city")
+    geolocator = Nominatim(user_agent="population")
     city_geocode = {}
     latitude = {}
     longitude = {}
@@ -48,7 +48,7 @@ def get_geocode(city_names):
     return latitude, longitude
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
     # cities = []
     # with open('../conf/city_with_country.txt', encoding='utf-8') as file:
     #     reader = csv.reader(file)
@@ -58,4 +58,4 @@ def get_geocode(city_names):
     # print(cities[0])
     #
     # get_geocode(cities)
-    # print(get_geocode(['MüNCHEN,DE']))
+    print(get_geocode(['MACAU,CN']))

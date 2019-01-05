@@ -94,6 +94,7 @@ def get_cooccurrance_network_v2(data, directed=False):
     :param output_path: 要输出共词网络图的路径
     :return: graph: 共现网络
     """
+    has_year = True
 
     if not directed:
         graph = nx.Graph()
@@ -101,8 +102,18 @@ def get_cooccurrance_network_v2(data, directed=False):
         graph = nx.DiGraph()
 
     for row in data:
+        if has_year:
+            try:
+                year = int(row[2])
+            except Exception as e:
+                print('不存在年份字段，使用普通方式建立网络')
+                has_year = False
+
         if graph.has_edge(str(row[0]), str(row[1])):
             graph.edges[str(row[0]), str(row[1])]['weight'] += 1
         else:
-            graph.add_edge(str(row[0]), str(row[1]), weight=1)
+            if has_year:
+                graph.add_edge(str(row[0]), str(row[1]), weight=1, year=year)
+            else:
+                graph.add_edge(str(row[0]), str(row[1]), weight=1)
     return graph

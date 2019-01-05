@@ -2,7 +2,7 @@ from netUtil.cooccurrence_network import get_cooccurrance_network_v2
 from netUtil.add_network_properties import *
 from netUtil.network_output import *
 import sqlite3
-
+import matplotlib.pyplot as plt
 
 def gen_co_city_network(cursor, start, end):
     """
@@ -14,7 +14,7 @@ def gen_co_city_network(cursor, start, end):
     :param end: 结束年份
     :return: 该时间段的城市合作网络对象
     """
-    query_sql = 'SELECT UPPER(TRIM(`city1`)), UPPER(TRIM(`city2`)) FROM `energy_city_cooccurrence` ' \
+    query_sql = 'SELECT UPPER(TRIM(`city1`)), UPPER(TRIM(`city2`)), `year` FROM `energy_city_cooccurrence` ' \
                 'WHERE `year` BETWEEN ? AND ?'
 
     cursor.execute(query_sql, (start, end))
@@ -31,8 +31,8 @@ def gen_co_city_network(cursor, start, end):
     # network = add_structural_holes_constraint(network)
 
     # 经纬度、国家为城市专属
-    network = add_city_geocode(network)
-    network = add_country(network)
+    # network = add_city_geocode(network)
+    # network = add_country(network)
 
     # 创建输出路径
     nodes_filename = '../results/energy/figure/{}-{}/{}-{}-city_nodes.csv'.format(start, end, start, end)
@@ -42,9 +42,18 @@ def gen_co_city_network(cursor, start, end):
     gexf_output_path = '../results/energy/figure/{}-{}/{}-{}-city.gexf'.format(start, end, start, end)
 
     # 用CSV格式输出网络
-    csv_output(network, nodes_filename, edges_filename, info_filename)
+    # csv_output(network, nodes_filename, edges_filename, info_filename, has_year=True)
 
     # gexf_output(network, gexf_output_path)
+
+
+    # print('计算模块度')
+    # network, q_value = add_community_discovery(network)
+    # x = [q[0] for q in q_value]
+    # y = [q[1] for q in q_value]
+    #
+    # plt.plot(x, y, 'r')
+    # plt.show()
 
     return network
 
