@@ -10,6 +10,7 @@ import re
 from math import isclose
 from networkx.algorithms import community
 from geopy.distance import great_circle
+from collections import defaultdict
 
 
 # 点度中心度
@@ -24,6 +25,7 @@ def add_betweenness_centrality(network: nx.Graph):
     bc = nx.betweenness_centrality(network)
     nx.set_node_attributes(network, bc, 'Betweenness_Centrality')
     return network
+
 
 def add_closeness_centrality(network: nx.Graph):
     cc = nx.closeness_centrality(network)
@@ -62,7 +64,7 @@ def add_city_geocode(network: nx.Graph):
     cities = network.nodes
     latitude, longitude = get_geocode(cities)
 
-    for city,lat in latitude.items():
+    for city, lat in latitude.items():
         if isclose(lat, 999.0) or type(lat) != type(1.0):
             try:
                 network.remove_node(city)
@@ -91,7 +93,7 @@ def general_properties(network: nx.Graph):
         'edge_num': len(network.edges),
         'density': nx.density(network),
         'global_clustering_coefficient': nx.average_clustering(network)
-                            if type(network) == type(nx.Graph) else nx.average_clustering(network.to_undirected()) ,
+        if type(network) == type(nx.Graph) else nx.average_clustering(network.to_undirected()),
         # 'diameter': diameter(network),
         'avg_shortest_path_length': average_shortest_path_length(network),
         'avg_degree': sum(dict(network.degree).values()) / len(network.nodes)
@@ -201,16 +203,17 @@ def add_knowledge_complexity(network: nx.Graph, max_iteration=25):
 
     return network
 
+
 # 社群发现（Girvan Newman算法）
 def add_community_discovery(network: nx.Graph):
     q_value = []
     com = community.girvan_newman(network)
     for i in range(20):
-        print('正在计算K={}的社群'.format(i+2))
+        print('正在计算K={}的社群'.format(i + 2))
         cur_com = next(com)
         q_value.append((len(cur_com), community.modularity(network, cur_com), cur_com))
 
-    max_q = max(q_value, key=lambda x:x[1])
+    max_q = max(q_value, key=lambda x: x[1])
     print('模块度最大的社群数为：{}，模块度为：{}'.format(max_q[0], max_q[1]))
 
     group_dict = {}
@@ -237,6 +240,7 @@ def add_in_and_out_degree(network: nx.DiGraph):
 
     return network
 
+
 # 计算地理上的到其他节点的平均距离（不需要有网络连通关系）
 def add_average_geo_distance(network: nx.Graph):
     avg_geo_distance = {}
@@ -256,10 +260,41 @@ def add_average_geo_distance(network: nx.Graph):
     return network
 
 
+# 计算基于Search Path Count的引文网络路径权重
+def add_search_path_count_weight(network: nx.DiGraph):
+    assert nx.is_directed_acyclic_graph(network)
 
+    # 找到所有的源点（sources）和汇点（sinks）
+    sources = [k for k, v in dict(network.in_degree).items() if v == 0]
+    sinks = [k for k, v in dict(network.out_degree).items() if v == 0]
 
+    # 权重字典，初始权重设置为0
+    spc_weight_dict = defaultdict(lambda: 0)
+    paths = []
+    global_main_paths = []
 
+    # 收集所有从源点到汇点的路径
+    for source in sources:
+        for sink in sinks:
+            paths += nx.algorithms.all_simple_paths(network, source, sink)
 
+    # 计算每条边被走过的次数并存放
+    for path in paths:
+        for i in range(len(path) - 1):
+            spc_weight_dict[(path[i], path[i + 1])] += 1
 
+    # 使用全局搜索方法找到主路径
+    max_weight = -1
+    for path in paths:
+        cur_weight = 0
+        for i in range(len(path) - 1):
+            cur_weight += spc_weight_dict[(path[i], path[i + 1])]
+        if cur_weight > max_weight:
+            max_weight = cur_weight
+            global_main_paths.clear()
+            global_main_paths.append(path)
+        elif cur_weight == max_weight:
+            global_main_paths.append(path)
 
-
+    nx.set_edge_attributes(network, spc_weight_dict, 'Search Path Count')
+    return network, global_main_paths, max_weight
