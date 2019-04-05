@@ -10,7 +10,7 @@ import re
 from math import isclose
 from networkx.algorithms import community
 from geopy.distance import great_circle
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 
 # 点度中心度
@@ -294,7 +294,99 @@ def add_search_path_count_weight(network: nx.DiGraph):
             global_main_paths.clear()
             global_main_paths.append(path)
         elif cur_weight == max_weight:
+            # 可能有多条权重相等的主路径，一并提取
             global_main_paths.append(path)
 
     nx.set_edge_attributes(network, spc_weight_dict, 'Search Path Count')
     return network, global_main_paths, max_weight
+
+
+def gen_meme_path_properties_dict(network: nx.DiGraph):
+    assert type(network) == type(nx.DiGraph())
+
+    node_num = len(network.nodes)
+    edge_num = len(network.edges)
+
+    in_degree_list = [in_degree[1] for in_degree in network.in_degree]
+    max_in_degree = max(in_degree_list)
+    min_in_degree = min(in_degree_list)
+    avg_in_degree = sum(in_degree_list) / len(in_degree_list)
+
+    assert max_in_degree >= min_in_degree and max_in_degree >= avg_in_degree
+
+    out_degree_list = [out_degree[1] for out_degree in network.out_degree]
+    max_out_degree = max(out_degree_list)
+    min_out_degree = min(out_degree_list)
+    avg_out_degree = sum(out_degree_list) / len(out_degree_list)
+
+    assert max_out_degree >= min_out_degree and max_out_degree >= avg_out_degree
+
+    density = nx.density(network)
+
+    num_components = nx.number_connected_components(network.to_undirected())
+
+    # 采用不是最优的算法来算直径
+    max_component = network.subgraph(max(nx.connected_components(network.to_undirected()), key=len))
+    max_component_diameter = nx.diameter(max_component.to_undirected())
+
+    if num_components > 1:
+        max_component_node_num = len(max_component.nodes)
+        max_component_edge_num = len(max_component.edges)
+
+        mc_in_degree_list = [mc_in_degree[1] for mc_in_degree in max_component.in_degree]
+        max_component_max_in_degree = max(mc_in_degree_list)
+        max_component_min_in_degree = min(mc_in_degree_list)
+        max_component_avg_in_degree = sum(mc_in_degree_list) / len(mc_in_degree_list)
+
+        mc_out_degree_list = [mc_out_degree[1] for mc_out_degree in max_component.out_degree]
+        max_component_max_out_degree = max(mc_out_degree_list)
+        max_component_min_out_degree = min(mc_out_degree_list)
+        max_component_avg_out_degree = sum(mc_out_degree_list) / len(mc_out_degree_list)
+
+    else:
+        max_component_node_num = node_num
+        max_component_edge_num = edge_num
+
+        max_component_max_in_degree = max_in_degree
+        max_component_min_in_degree = min_in_degree
+        max_component_avg_in_degree = avg_in_degree
+        max_component_max_out_degree = max_out_degree
+        max_component_min_out_degree = min_out_degree
+        max_component_avg_out_degree = avg_out_degree
+
+    max_component_in_degree_distribution = Counter([i[1] for i in max_component.in_degree])
+    max_component_out_degree_distribution = Counter([i[1] for i in max_component.out_degree])
+
+    return {'cascade_size': max_component_node_num,
+            'max_comp_edge_count': max_component_edge_num,
+            'cascade_depth': max_component_diameter,
+            'component_num': num_components,
+            'in_degree': sum([i[1] for i in network.in_degree]),
+            'out_degree': sum([i[1] for i in network.out_degree]),
+            'degree': sum([i[1] for i in network.degree]),
+            'node_num': len(network.nodes),
+            'edge_count': len(network.edges),
+            'clustering_coef': nx.average_clustering(network.to_undirected()),
+            'density': nx.density(network.to_undirected()),
+            'source_num': Counter([i[1] for i in network.in_degree])[0] #找到入度为0的起源节点数
+            }
+
+    # return {'node_num': node_num,
+    #         'edge_num': edge_num,
+    #         'max_in_degree': max_in_degree,
+    #         'max_out_degree': max_out_degree,
+    #         'avg_in_degree': avg_in_degree,
+    #         'avg_out_degree': avg_out_degree,
+    #         'min_in_degree': min_in_degree,
+    #         'min_out_degree': min_out_degree,
+    #         'density': density,
+    #         'num_components': num_components,
+    #         'max_component_node_num':max_component_node_num,
+    #         'max_component_edge_num' : max_component_edge_num,
+    #         'max_component_diameter': max_component_diameter,
+    #         'max_component_max_in_degree': max_component_max_in_degree,
+    #         'max_component_min_in_degree': max_component_min_in_degree,
+    #         'max_component_avg_in_degree': max_component_avg_in_degree,
+    #         'max_component_max_out_degree': max_component_max_out_degree,
+    #         'max_component_min_out_degree': max_component_min_out_degree,
+    #         'max_component_avg_out_degree': max_component_avg_out_degree}

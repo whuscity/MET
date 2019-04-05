@@ -2,11 +2,11 @@ import pandas as pd
 from math import isclose
 import os
 
-filenames = ['health_statistics_tka']
+filenames = ['health_tk','health_care_tk','health_cs_tk','health_medicine_tk','health_statistics_tk','optoelectronic_paper_tk']
 n = 20
 
 for filename in filenames:
-    file_path = r'../results/meme/{}_finished.csv'.format(filename)
+    file_path = r'../results/meme/finished/{}_finished.csv'.format(filename)
     df = pd.read_csv(file_path)
     print('{}原始meme个数：{}'.format(filename, len(df)))
 
@@ -30,7 +30,7 @@ for filename in filenames:
                 delete_index_set.add(index)
                 delete_set.add((cur_ngram, df.iloc[i]['ngram']))
 
-            if df.iloc[i]['ngram'] in cur_ngram and isclose(df.iloc[i]['meme_score'], cur_score):
+            if df.iloc[i]['ngram'] in cur_ngram:
                 #             print('-----')
                 #             print('发现第二类搭便车情况：nid：{}，ngram：{} --> nid：{}，ngram：{}'.format(cur_nid, cur_ngram, df.iloc[i]['nid'], df.iloc[i]['ngram']))
                 delete_index_set.add(i)

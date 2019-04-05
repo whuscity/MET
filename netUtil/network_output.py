@@ -3,13 +3,14 @@ import networkx as nx
 import os
 from .add_network_properties import general_properties
 
+
 def csv_output(network, nodes_output_path, edges_output_path, info_output_path, has_year=False):
+    assert network is not None and nodes_output_path is not None and edges_output_path is not None and info_output_path is not None
 
     # 创建输出路径
     os.makedirs(os.path.dirname(nodes_output_path), exist_ok=True)
     os.makedirs(os.path.dirname(edges_output_path), exist_ok=True)
     os.makedirs(os.path.dirname(info_output_path), exist_ok=True)
-
 
     # 实际输出节点及其属性到CSV文件
     with open(nodes_output_path, encoding='utf-8', mode='w', newline='') as file:
@@ -51,7 +52,16 @@ def csv_output(network, nodes_output_path, edges_output_path, info_output_path, 
         for key, value in output_properties.items():
             writer.writerow([key, value])
 
+
 def gexf_output(network, output_path):
+    assert network is not None and output_path is not None
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     nx.write_gexf(network, output_path)
+
+
+def graphml_output(network, output_path):
+    assert network is not None and output_path is not None
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    nx.write_graphml(network, output_path)

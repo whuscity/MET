@@ -85,7 +85,7 @@ def get_cooccurrance_network(classes, data, label_name, directed=False):
 
     return graph
 
-def get_cooccurrance_network_v2(data, directed=False):
+def get_cooccurrance_network_v2(data, directed=False, source=0, target=1):
     """
     计算并输出共现网络到GEXF文件
 
@@ -106,14 +106,14 @@ def get_cooccurrance_network_v2(data, directed=False):
             try:
                 year = int(row[2])
             except Exception as e:
-                print('不存在年份字段，使用普通方式建立网络')
+                # print('不存在年份字段，使用普通方式建立网络')
                 has_year = False
 
-        if graph.has_edge(str(row[0]), str(row[1])):
-            graph.edges[str(row[0]), str(row[1])]['weight'] += 1
+        if graph.has_edge(str(row[source]), str(row[target])):
+            graph.edges[str(row[source]), str(row[target])]['weight'] += 1
         else:
             if has_year:
-                graph.add_edge(str(row[0]), str(row[1]), weight=1, year=year)
+                graph.add_edge(str(row[source]), str(row[target]), weight=1, year=year)
             else:
-                graph.add_edge(str(row[0]), str(row[1]), weight=1)
+                graph.add_edge(str(row[source]), str(row[target]), weight=1)
     return graph
